@@ -1,0 +1,7 @@
+target/
+dist/
+*.db
+*.db-journal
+.idea/
+*.iml
+.vscode/
