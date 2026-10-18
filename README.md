@@ -1,6 +1,12 @@
 # Consultorio SV
 
+<p align="center">
+  <img alt="Trabajo cerrado" src="https://img.shields.io/badge/Trabajo%20cerrado-listo%20para%20usar-6B3A46?style=for-the-badge&labelColor=2C2426">
+</p>
+
 Programa de escritorio para el consultorio de **Stephany Valencia**, odontóloga y armonizadora orofacial. Lleva pacientes, citas, controles y los avisos por WhatsApp en un solo lugar, en este computador.
+
+**Estado: trabajo cerrado.** La versión 1.0 está terminada y lista para usarse en el consultorio.
 
 La interfaz está en español (Colombia) y las horas se muestran en formato de 12 horas, con *a. m.* y *p. m.*
 
