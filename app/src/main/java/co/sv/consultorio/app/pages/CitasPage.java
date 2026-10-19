@@ -303,7 +303,7 @@ public final class CitasPage extends Page {
         if (hoursPane == null) {
             return;
         }
-        List<AppointmentService.Slot> slots = s().appointments().daySlots(day);
+        List<AppointmentService.Slot> slots = s().appointments().daySlots(day, replaceId == null ? 0 : replaceId);
         long free = slots.stream().filter(AppointmentService.Slot::free).count();
         if (slot != null && slots.stream().noneMatch(sl -> sl.time().equals(slot) && sl.free())) {
             slot = null;
@@ -316,6 +316,8 @@ public final class CitasPage extends Page {
                 b.setOnAction(e -> selectSlot(sl.time()));
             } else {
                 Ui.tip(b, sl.state() == AppointmentService.SlotState.PAST ? "Esa hora ya pasó"
+                        : replaceId != null && sl.occupant() != null && sl.occupant().id() == replaceId
+                        ? "Es la hora actual de la cita que vas a reprogramar"
                         : "Hay hora y media de diferencia con otra cita");
             }
             hoursPane.getChildren().add(b);
@@ -494,7 +496,7 @@ public final class CitasPage extends Page {
     }
 
     private static Text text(String s, String cls) {
-        Text t = new Text(s);
+        Text t = new Text(Ui.keepTimes(s));
         t.getStyleClass().add("tf");
         if (cls != null) {
             t.getStyleClass().add(cls);
@@ -563,11 +565,10 @@ public final class CitasPage extends Page {
         }
         try {
             LocalDateTime when = day.atTime(slot);
-            Long moving = replaceId;
-            replaceId = null;
-            last = moving == null
+            last = replaceId == null
                     ? s().appointments().add(sel.patient().id(), type, when)
-                    : s().appointments().reschedule(moving, type, when);
+                    : s().appointments().reschedule(replaceId, type, when);
+            replaceId = null;
             lastText = sel.patient().fullName() + " · " + Fmt.longDateDow(day) + ", " + Fmt.time12(slot);
             slot = null;
             long apptId = last.saved().id();
@@ -581,6 +582,9 @@ public final class CitasPage extends Page {
                 shell().toast((last.rescheduled() ? "Cita reprogramada: " : "Cita asignada: ") + lastText);
             }
         } catch (BusinessException ex) {
+            if (replaceId != null && s().appointments().get(replaceId) == null) {
+                replaceId = null;
+            }
             shell().error(ex.getMessage());
             renderForm();
         }

@@ -22,6 +22,7 @@ import javafx.scene.control.TextArea;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 
 /**
@@ -73,6 +74,8 @@ public final class WhatsAppFlow {
         area.setText(original);
         Label lbl = Ui.label("Mensaje", "lbl");
         VBox field = new VBox(Ui.px(6), lbl, area);
+        VBox.setVgrow(area, Priority.ALWAYS);
+        HBox body = new HBox(Ui.px(16), Ui.hgrow(field), locationPhoto());
 
         String procName = v.process() == null ? "programa" : v.process().name();
         Button reset = Ui.link("Restablecer mensaje");
@@ -91,10 +94,20 @@ public final class WhatsAppFlow {
                 ctx.shell().error("Escribe el mensaje antes de abrir WhatsApp.");
                 return;
             }
-            openDesktopChat(ctx, ctx.s().notifications().whatsAppDesktopUri(v.patient().phone()).toString(), text, () ->
-                    confirmSent(ctx, p, v, text, afterSent));
+            open.setDisable(true);
+            openDesktopChat(ctx, ctx.s().notifications().whatsAppDesktopUri(v.patient().phone()).toString(), text, ok -> {
+                if (ok) {
+                    confirmSent(ctx, p, v, text, afterSent);
+                } else {
+                    open.setDisable(false);
+                    var content = new javafx.scene.input.ClipboardContent();
+                    content.putString(text);
+                    javafx.scene.input.Clipboard.getSystemClipboard().setContent(content);
+                    ctx.shell().error("No se pudo pegar el mensaje en WhatsApp. Quedó copiado: abre el chat y pulsa Ctrl+V. La foto hay que adjuntarla a mano.");
+                }
+            });
         });
-        p.add(field, tools, locationPhoto(), Pop.foot(
+        p.add(body, tools, Pop.foot(
                 "Se abre WhatsApp en el chat de este número. El mensaje y la foto se pegan ahí. "
                         + "No se abre el navegador.",
                 cancel, open));
@@ -187,39 +200,46 @@ public final class WhatsAppFlow {
     }
 
     /** Abre el chat y, en la misma ventana de WhatsApp, pega el mensaje y luego la foto. */
-    private static void openDesktopChat(AppContext ctx, String link, String text, Runnable then) {
+    private static void openDesktopChat(AppContext ctx, String link, String text, java.util.function.Consumer<Boolean> then) {
         Image photo = Images.get("ubicacion.jpg", false);
         ctx.stage().toBack();
         Thread worker = new Thread(() -> {
             boolean opened = false;
+            Path dir = null;
             try {
-                Path dir = java.nio.file.Files.createTempDirectory("sv-wa");
+                dir = java.nio.file.Files.createTempDirectory("sv-wa");
                 Path msg = dir.resolve("mensaje.txt");
                 java.nio.file.Files.writeString(msg, text == null ? "" : text, java.nio.charset.StandardCharsets.UTF_8);
                 Path img = dir.resolve("ubicacion.png");
                 writePng(photo, img);
                 Path script = dir.resolve("pegar.ps1");
                 java.nio.file.Files.writeString(script, PASTE_SCRIPT, java.nio.charset.StandardCharsets.UTF_8);
+                String powershell = Path.of(System.getenv().getOrDefault("SystemRoot", "C:\\Windows"),
+                        "System32", "WindowsPowerShell", "v1.0", "powershell.exe").toString();
                 ProcessBuilder launch = new ProcessBuilder(
-                        "powershell", "-NoProfile", "-STA", "-File", script.toString());
+                        powershell, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+                        "-STA", "-File", script.toString());
                 launch.environment().put("WA_URL", link);
                 launch.environment().put("WA_MSG", msg.toAbsolutePath().toString());
                 launch.environment().put("WA_IMG", img.toAbsolutePath().toString());
                 launch.redirectErrorStream(true);
                 Process process = launch.start();
-                opened = process.waitFor(25, TimeUnit.SECONDS) && process.exitValue() == 0;
+                boolean finished = process.waitFor(25, TimeUnit.SECONDS);
+                if (!finished) {
+                    process.destroyForcibly();
+                }
+                opened = finished && process.exitValue() == 0;
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
             } catch (Exception ignored) {
                 opened = false;
+            } finally {
+                deleteTree(dir);
             }
             boolean ok = opened;
             javafx.application.Platform.runLater(() -> {
                 ctx.stage().toFront();
-                if (!ok) {
-                    ctx.shell().error("No se pudo pegar el mensaje en WhatsApp. El chat quedó abierto: pulsa Ctrl+V.");
-                }
-                then.run();
+                then.accept(ok);
             });
         }, "abrir-whatsapp");
         worker.setDaemon(true);
@@ -241,15 +261,33 @@ public final class WhatsAppFlow {
         javax.imageio.ImageIO.write(out, "png", file.toFile());
     }
 
+    /** Borra el mensaje temporal del paciente en cuanto termina el pegado. */
+    private static void deleteTree(Path dir) {
+        if (dir == null) {
+            return;
+        }
+        try (java.util.stream.Stream<Path> walk = java.nio.file.Files.walk(dir)) {
+            walk.sorted(java.util.Comparator.reverseOrder()).forEach(p -> {
+                try {
+                    java.nio.file.Files.deleteIfExists(p);
+                } catch (java.io.IOException ignored) {
+                    // Si Windows todavía tiene el archivo abierto, se limpia en el próximo arranque.
+                }
+            });
+        } catch (java.io.IOException ignored) {
+            // Igual que arriba.
+        }
+    }
+
     private static final String PASTE_SCRIPT = """
             $ErrorActionPreference = 'Stop'
             Add-Type -AssemblyName System.Windows.Forms
             Add-Type -AssemblyName System.Drawing
-            Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class SvClick { [StructLayout(LayoutKind.Sequential)] public struct RECT { public int L; public int T; public int R; public int B; } [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r); [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y); [DllImport("user32.dll")] public static extern void mouse_event(int f, int dx, int dy, int d, int e); public static void Bottom(IntPtr h) { RECT r; if (!GetWindowRect(h, out r)) return; SetCursorPos((r.L + r.R) / 2, r.B - 48); mouse_event(2, 0, 0, 0, 0); mouse_event(4, 0, 0, 0, 0); } }'
+            Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class SvClick { [StructLayout(LayoutKind.Sequential)] public struct RECT { public int L; public int T; public int R; public int B; } [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r); [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y); [DllImport("user32.dll")] public static extern void mouse_event(int f, int dx, int dy, int d, int e); [DllImport("user32.dll")] public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo); public static void Bottom(IntPtr h) { RECT r; if (!GetWindowRect(h, out r)) return; SetCursorPos((r.L + r.R) / 2, r.B - 48); mouse_event(2, 0, 0, 0, 0); mouse_event(4, 0, 0, 0, 0); } public static void Paste() { keybd_event(0x11, 0, 0, UIntPtr.Zero); System.Threading.Thread.Sleep(40); keybd_event(0x56, 0, 0, UIntPtr.Zero); System.Threading.Thread.Sleep(40); keybd_event(0x56, 0, 2, UIntPtr.Zero); keybd_event(0x11, 0, 2, UIntPtr.Zero); } }'
             Start-Process -FilePath $env:WA_URL
             $p = $null
             foreach ($i in 1..30) {
-              $p = Get-Process -Name 'WhatsApp.Root' -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
+              $p = Get-Process -Name 'WhatsApp.Root','WhatsApp' -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
               if ($p) { break }
               Start-Sleep -Milliseconds 300
             }
@@ -269,13 +307,13 @@ public final class WhatsAppFlow {
             [System.Windows.Forms.Clipboard]::SetText($text, [System.Windows.Forms.TextDataFormat]::UnicodeText)
             Start-Sleep -Milliseconds 200
             Focus-Wa
-            $w.SendKeys('^v')
+            [SvClick]::Paste()
             Start-Sleep -Milliseconds 700
             $img = [System.Drawing.Image]::FromFile($env:WA_IMG)
             [System.Windows.Forms.Clipboard]::Clear()
             [System.Windows.Forms.Clipboard]::SetImage($img)
             Start-Sleep -Milliseconds 250
-            $w.SendKeys('^v')
+            [SvClick]::Paste()
             $img.Dispose()
             exit 0
             """;
@@ -287,6 +325,7 @@ public final class WhatsAppFlow {
         view.setSmooth(true);
         VBox box = new VBox(Ui.px(8), Ui.label("Foto que se anexa", "lbl"), view);
         box.getStyleClass().add("ro-box");
+        box.setMinWidth(javafx.scene.layout.Region.USE_PREF_SIZE);
         return box;
     }
 

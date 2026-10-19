@@ -178,24 +178,48 @@ public class AppointmentService {
     }
 
     public List<Slot> daySlots(LocalDate date) {
+        return daySlots(date, 0);
+    }
+
+    /**
+     * Horas del día. Si se está reprogramando una cita, {@code excludeAppointmentId} no bloquea
+     * las horas vecinas: solo deja desactivada la hora en la que ya está esa cita.
+     */
+    public List<Slot> daySlots(LocalDate date, long excludeAppointmentId) {
         LocalDateTime now = time.now();
         List<Appointment> day = appointments.findBetween(date.atStartOfDay(), date.plusDays(1).atStartOfDay());
         List<Slot> out = new ArrayList<>();
         for (LocalTime t : settings.slotsFor(date.getDayOfWeek())) {
             LocalDateTime at = date.atTime(t);
-            Appointment occ = nearestWithinGap(day, at);
-            SlotState st = occ != null ? SlotState.BUSY
+            Appointment own = ownAt(day, excludeAppointmentId, at);
+            Appointment occ = nearestWithinGap(day, at, excludeAppointmentId);
+            SlotState st = occ != null || own != null ? SlotState.BUSY
                     : at.isBefore(now) ? SlotState.PAST : SlotState.FREE;
-            out.add(new Slot(t, st, occ));
+            out.add(new Slot(t, st, occ != null ? occ : own));
         }
         return out;
     }
 
-    /** Cita del día cuyo inicio está a menos de hora y media de {@code at}. */
-    private static Appointment nearestWithinGap(List<Appointment> day, LocalDateTime at) {
+    private static Appointment ownAt(List<Appointment> day, long excludeAppointmentId, LocalDateTime at) {
+        if (excludeAppointmentId == 0) {
+            return null;
+        }
+        for (Appointment a : day) {
+            if (a.id() == excludeAppointmentId && a.startsAt().equals(at)) {
+                return a;
+            }
+        }
+        return null;
+    }
+
+    /** Cita del día cuyo inicio está a menos de hora y media de {@code at}, salvo la que se está moviendo. */
+    private static Appointment nearestWithinGap(List<Appointment> day, LocalDateTime at, long excludeAppointmentId) {
         Appointment nearest = null;
         long best = GAP_MINUTES;
         for (Appointment a : day) {
+            if (a.id() == excludeAppointmentId) {
+                continue;
+            }
             long minutes = Math.abs(java.time.Duration.between(a.startsAt(), at).toMinutes());
             if (minutes < GAP_MINUTES && minutes < best) {
                 best = minutes;

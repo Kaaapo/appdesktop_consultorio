@@ -53,6 +53,9 @@ public final class Shell {
 
     public enum Nav { INICIO, CITAS, PACIENTES, PROCESOS, REPORTES, PERFIL }
 
+    private static final double SIDE_WIDTH = 272;
+    private static final double RAIL_WIDTH = 76;
+
     private final AppContext ctx;
     private final StackPane root = new StackPane();
     private final BorderPane frame = new BorderPane();
@@ -66,6 +69,7 @@ public final class Shell {
     private Supplier<Page> pageFactory;
     private boolean loggedIn;
     private boolean darkApplied;
+    private boolean rail;
 
     Shell(AppContext ctx) {
         this.ctx = ctx;
@@ -73,8 +77,9 @@ public final class Shell {
         root.getChildren().addAll(frame, overlay.layer(), overlay.toastLayer());
         scene = new Scene(root, 1280, 900, Color.BLACK);
         chrome.installResize(scene);
+        scene.widthProperty().addListener((obs, old, w) -> updateRail());
         scroll.setFitToWidth(true);
-        scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
         scroll.getStyleClass().add("main-scroll");
         scroll.vvalueProperty().addListener((obs, old, value) -> holdScroll(value.doubleValue()));
         scroll.addEventFilter(ScrollEvent.SCROLL, e -> beginUserScroll());
@@ -377,16 +382,75 @@ public final class Shell {
     private void buildFrame() {
         VBox top = new VBox(chrome.titleBar(), buildStrip());
         frame.setTop(top);
+        rail = wantsRail();
+        frame.setLeft(buildSideScroll());
+    }
+
+    /** Si el menú completo no deja el ancho mínimo para el área principal, queda solo con íconos. */
+    private boolean wantsRail() {
+        return scene.getWidth() > 0 && scene.getWidth() < Ui.px(SIDE_WIDTH + Page.MIN_WIDTH + 10);
+    }
+
+    private void updateRail() {
+        if (wantsRail() == rail || !loggedIn || frame.getLeft() == null) {
+            return;
+        }
+        rail = !rail;
+        frame.setLeft(buildSideScroll());
+        if (page != null) {
+            markNav(page.nav());
+        }
+    }
+
+    private ScrollPane buildSideScroll() {
         VBox side = buildSide();
         ScrollPane sideScroll = new ScrollPane(side);
         sideScroll.setFitToWidth(true);
         sideScroll.setFitToHeight(true);
         sideScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         sideScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
-        sideScroll.setMinWidth(Ui.px(272));
-        sideScroll.setPrefWidth(Ui.px(272));
-        sideScroll.setMaxWidth(Ui.px(272));
-        frame.setLeft(sideScroll);
+        double w = Ui.px(rail ? RAIL_WIDTH : SIDE_WIDTH);
+        sideScroll.setMinWidth(w);
+        sideScroll.setPrefWidth(w);
+        sideScroll.setMaxWidth(w);
+        sideScroll.heightProperty().addListener((obs, old, h) -> fitSide(side, h.doubleValue()));
+        return sideScroll;
+    }
+
+    /**
+     * En ventanas bajas el menú no cabe entero y se perdían "Cerrar sesión" y "Mi perfil".
+     * Primero se achica la marca y luego se quita; los botones siempre quedan.
+     */
+    private static void fitSide(VBox side, double height) {
+        if (height <= 0 || !(side.getChildren().get(0) instanceof VBox brand)
+                || !(brand.getChildren().get(0) instanceof ImageView mono)) {
+            return;
+        }
+        double logo = (double) mono.getProperties().get("sv-logo");
+        var kids = brand.getChildren();
+        for (int level = 0; level < 4; level++) {
+            side.getStyleClass().remove("tight");
+            if (level > 0) {
+                side.getStyleClass().add("tight");
+            }
+            if (kids.size() > 2) {
+                show(kids.get(2), level < 1);
+            }
+            if (kids.size() > 1) {
+                show(kids.get(1), level < 2);
+            }
+            show(brand, level < 3);
+            mono.setFitHeight(level < 2 ? logo : Math.min(logo, Ui.px(44)));
+            side.applyCss();
+            if (side.prefHeight(-1) <= height) {
+                return;
+            }
+        }
+    }
+
+    private static void show(Node n, boolean visible) {
+        n.setVisible(visible);
+        n.setManaged(visible);
     }
 
     private HBox buildStrip() {
@@ -430,18 +494,26 @@ public final class Shell {
     private VBox buildSide() {
         VBox side = new VBox();
         side.getStyleClass().add("side");
+        if (rail) {
+            side.getStyleClass().add("rail");
+        }
 
         ImageView mono = new ImageView(Images.get("mono.png", darkApplied));
         mono.setPreserveRatio(true);
         mono.setSmooth(true);
-        mono.setFitHeight(Ui.px(74));
-        Label word = Ui.label(Ui.spaced("Stephany Valencia"), "brand-word");
-        Label tag = Ui.label(Ui.spaced("Odontóloga ·") + "\n" + Ui.spaced("Armonizadora") + "\n" + Ui.spaced("orofacial"),
-                "brand-tag");
-        tag.setTextAlignment(TextAlignment.CENTER);
-        tag.setLineSpacing(Ui.px(2));
-        tag.setMinHeight(Region.USE_PREF_SIZE);
-        VBox brand = new VBox(mono, word, tag);
+        double logo = Ui.px(rail ? 40 : 74);
+        mono.setFitHeight(logo);
+        mono.getProperties().put("sv-logo", logo);
+        VBox brand = new VBox(mono);
+        if (!rail) {
+            Label word = Ui.label(Ui.spaced("Stephany Valencia"), "brand-word");
+            Label tag = Ui.label(Ui.spaced("Odontóloga ·") + "\n" + Ui.spaced("Armonizadora") + "\n"
+                    + Ui.spaced("orofacial"), "brand-tag");
+            tag.setTextAlignment(TextAlignment.CENTER);
+            tag.setLineSpacing(Ui.px(2));
+            tag.setMinHeight(Region.USE_PREF_SIZE);
+            brand.getChildren().addAll(word, tag);
+        }
         brand.getStyleClass().add("brand");
         brand.setCursor(javafx.scene.Cursor.HAND);
         brand.setOnMouseClicked(e -> go(Nav.INICIO));
@@ -463,16 +535,21 @@ public final class Shell {
 
         StackPane av = new StackPane(new Label("A"));
         av.getStyleClass().add("av");
-        VBox who = new VBox(Ui.label("Administrador", "mname"), Ui.label("Mi perfil", "mrole"));
-        HBox meBox = new HBox(Ui.px(12), av, who);
+        HBox meBox = new HBox(Ui.px(12), av);
+        if (!rail) {
+            meBox.getChildren().add(new VBox(Ui.label("Administrador", "mname"), Ui.label("Mi perfil", "mrole")));
+        }
         meBox.setAlignment(Pos.CENTER_LEFT);
         Button me = new Button();
         me.getStyleClass().setAll("button", "me");
         me.setGraphic(meBox);
         me.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
         me.setMaxWidth(Double.MAX_VALUE);
-        me.setAlignment(Pos.CENTER_LEFT);
+        me.setAlignment(rail ? Pos.CENTER : Pos.CENTER_LEFT);
         me.setAccessibleText("Mi perfil");
+        if (rail) {
+            Ui.tip(me, "Mi perfil");
+        }
         me.setOnAction(e -> go(Nav.PERFIL));
         navButtons.put(Nav.PERFIL, me);
 
@@ -488,11 +565,12 @@ public final class Shell {
         b.getStyleClass().setAll("button", "nav");
         b.setGraphic(Icons.of(icon, 20, 1.6));
         b.setMaxWidth(Double.MAX_VALUE);
-        b.setMinWidth(Ui.px(220));
+        b.setMinWidth(rail ? 0 : Ui.px(220));
         b.setWrapText(false);
         b.setTextOverrun(javafx.scene.control.OverrunStyle.CLIP);
         b.setMnemonicParsing(false);
         b.setOnAction(e -> go(nav));
+        railOnly(b, text);
         navButtons.put(nav, b);
         return b;
     }
@@ -503,7 +581,17 @@ public final class Shell {
         b.setGraphic(Icons.of(icon, 20, 1.6));
         b.setMaxWidth(Double.MAX_VALUE);
         b.setMnemonicParsing(false);
+        railOnly(b, text);
         return b;
+    }
+
+    /** En el menú angosto el botón muestra solo el ícono y el nombre sale al pasar el ratón. */
+    private void railOnly(Button b, String text) {
+        if (rail) {
+            b.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+            b.setAccessibleText(text);
+            Ui.tip(b, text);
+        }
     }
 
     private void markNav(Nav active) {

@@ -74,7 +74,12 @@ public final class Chip {
     /** Hace el chip clicable (por ejemplo, para abrir "Ya se le avisó"). */
     public static HBox clickable(HBox chip, Runnable action, String tooltip) {
         chip.getStyleClass().add("clickable");
-        chip.setOnMouseClicked(e -> action.run());
+        chip.setOnMouseClicked(e -> {
+            if (e.getButton() == javafx.scene.input.MouseButton.PRIMARY && e.getClickCount() == 1) {
+                action.run();
+            }
+            e.consume();
+        });
         chip.setFocusTraversable(true);
         chip.setOnKeyPressed(e -> {
             switch (e.getCode()) {

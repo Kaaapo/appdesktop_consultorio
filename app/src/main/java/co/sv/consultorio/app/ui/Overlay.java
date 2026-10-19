@@ -5,9 +5,11 @@ import javafx.animation.PauseTransition;
 import javafx.animation.SequentialTransition;
 import javafx.geometry.Bounds;
 import javafx.geometry.Insets;
+import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.HBox;
@@ -91,26 +93,53 @@ public final class Overlay {
 
     public final class Modal {
         private final StackPane scrim = new StackPane();
+        private final Region content;
         private final Node previousFocus;
         private Runnable onClose;
         private boolean escCloses = true;
         private boolean closed;
 
         private Modal(Region content, double width) {
+            this.content = content;
             previousFocus = layer.getScene() == null ? null : layer.getScene().getFocusOwner();
             scrim.getStyleClass().add("scrim");
             content.setMaxWidth(Ui.px(width));
             content.setPrefWidth(Ui.px(width));
             content.setMaxHeight(Region.USE_PREF_SIZE);
-            scrim.getChildren().add(content);
+            ScrollPane frame = frame(content, width);
+            scrim.getChildren().add(frame);
             scrim.setPadding(new Insets(Ui.px(24)));
-            StackPane.setAlignment(content, Pos.CENTER);
-            Motion.pop(content);
+            StackPane.setAlignment(frame, Pos.CENTER);
+            Motion.pop(frame);
             scrim.setOnMouseClicked(e -> {
-                if (e.getTarget() == scrim && escCloses) {
+                if (e.getTarget() == scrim && e.getClickCount() == 1 && escCloses) {
                     close();
                 }
             });
+        }
+
+        /** Si el cuadro no cabe en la ventana (pantallas pequeñas), se encoge hasta su mínimo y luego se desplaza. */
+        private static ScrollPane frame(Region content, double width) {
+            ScrollPane frame = new ScrollPane(content) {
+                @Override
+                public Orientation getContentBias() {
+                    return Orientation.HORIZONTAL;
+                }
+
+                @Override
+                protected double computePrefHeight(double w) {
+                    double inner = (w < 0 ? Ui.px(width) : w) - snappedLeftInset() - snappedRightInset();
+                    return content.prefHeight(inner) + snappedTopInset() + snappedBottomInset();
+                }
+            };
+            frame.getStyleClass().add("pop-frame");
+            frame.setFitToWidth(true);
+            frame.setFitToHeight(true);
+            frame.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+            frame.setFocusTraversable(false);
+            frame.setMaxWidth(Ui.px(width));
+            frame.setMaxHeight(Region.USE_PREF_SIZE);
+            return frame;
         }
 
         public Modal onClose(Runnable r) {
@@ -156,7 +185,7 @@ public final class Overlay {
 
         private void focusFirst() {
             javafx.application.Platform.runLater(() -> {
-                Node auto = scrim.lookup(".autofocus");
+                Node auto = content.lookup(".autofocus");
                 if (auto != null) {
                     auto.requestFocus();
                 } else {
@@ -173,7 +202,7 @@ public final class Overlay {
         menuCatcher = new Pane();
         menuCatcher.setPickOnBounds(true);
         menuCatcher.setOnMousePressed(e -> {
-            if (e.getTarget() == menuCatcher) {
+            if (e.getTarget() == menuCatcher && e.getClickCount() == 1) {
                 closeMenu();
             }
         });

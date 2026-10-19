@@ -6,6 +6,7 @@ import co.sv.consultorio.domain.AppointmentType;
 import co.sv.consultorio.domain.BusinessException;
 import co.sv.consultorio.domain.Patient;
 import co.sv.consultorio.domain.Process;
+import co.sv.consultorio.util.Fmt;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -101,6 +102,12 @@ class NotificationServiceTest {
         Appointment again = notifications.markNotified(a.id(), "Nueva fecha");
         assertEquals(co.sv.consultorio.domain.WaStatus.AVISADO, again.waStatus());
         assertEquals("Nueva fecha", again.notifiedText());
+    }
+
+    @Test
+    void oneOClockSaysALaInTheMessage() {
+        assertEquals("sábado 17 de octubre a la 1:00 p. m.", Fmt.messageDate(LocalDateTime.of(2026, 10, 17, 13, 0)));
+        assertEquals("sábado 17 de octubre a las 12:30 p. m.", Fmt.messageDate(LocalDateTime.of(2026, 10, 17, 12, 30)));
     }
 
     @Test

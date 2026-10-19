@@ -28,6 +28,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.time.format.ResolverStyle;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashSet;
@@ -65,9 +66,7 @@ public class ImportService {
     }
 
     private static final DateTimeFormatter[] DATE_FORMATS = {
-            DateTimeFormatter.ofPattern("d/M/yyyy"), DateTimeFormatter.ofPattern("d-M-yyyy"),
-            DateTimeFormatter.ofPattern("yyyy-M-d"), DateTimeFormatter.ofPattern("d.M.yyyy"),
-            DateTimeFormatter.ofPattern("d/M/yy")};
+            strict("d/M/uuuu"), strict("d-M-uuuu"), strict("uuuu-M-d"), strict("d.M.uuuu"), strict("d/M/uu")};
 
     private final Database db;
     private final PatientService patients;
@@ -142,6 +141,7 @@ public class ImportService {
     ImportPreview parse(String fileName, Workbook wb) {
         Sheet sh = wb.getSheetAt(0);
         DataFormatter fmt = new DataFormatter();
+        fmt.setUseCachedValuesForFormulaCells(true);
         int headerRow = -1;
         Map<Col, Integer> cols = new EnumMap<>(Col.class);
         for (int r = sh.getFirstRowNum(); r <= Math.min(sh.getLastRowNum(), sh.getFirstRowNum() + 10) && headerRow < 0; r++) {
@@ -261,7 +261,7 @@ public class ImportService {
             return Col.NAME;
         }
         if (h.contains("documento") || h.contains("cedula") || h.equals("cc") || h.equals("doc")) {
-            return Col.DOCUMENT;
+            return h.startsWith("tipo") ? null : Col.DOCUMENT;
         }
         if (h.contains("telefono") || h.contains("celular") || h.equals("tel")) {
             return Col.PHONE;
@@ -289,13 +289,26 @@ public class ImportService {
         if (c == null) {
             return "";
         }
-        if (c.getCellType() == CellType.NUMERIC && !DateUtil.isCellDateFormatted(c)) {
+        CellType type = type(c);
+        if (type == CellType.ERROR) {
+            return "";
+        }
+        if (type == CellType.NUMERIC && !DateUtil.isCellDateFormatted(c)) {
             double v = c.getNumericCellValue();
             if (v == Math.rint(v)) {
                 return String.valueOf((long) v);
             }
         }
         return fmt.formatCellValue(c).trim();
+    }
+
+    /** Tipo de la celda; en las fórmulas, el de su último valor calculado. */
+    private static CellType type(Cell c) {
+        return c.getCellType() == CellType.FORMULA ? c.getCachedFormulaResultType() : c.getCellType();
+    }
+
+    private static DateTimeFormatter strict(String pattern) {
+        return DateTimeFormatter.ofPattern(pattern).withResolverStyle(ResolverStyle.STRICT);
     }
 
     private static LocalDate date(Row row, Integer col, DataFormatter fmt, String label, List<String> errors,
@@ -307,7 +320,7 @@ public class ImportService {
         if (c == null) {
             return null;
         }
-        if (c.getCellType() == CellType.NUMERIC) {
+        if (type(c) == CellType.NUMERIC) {
             if (DateUtil.isCellDateFormatted(c) || DateUtil.isValidExcelDate(c.getNumericCellValue())) {
                 return c.getLocalDateTimeCellValue().toLocalDate();
             }

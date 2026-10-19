@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ImportAndReportTest {
@@ -91,6 +92,63 @@ class ImportAndReportTest {
         assertEquals(LocalDate.of(1996, 10, 13), preview.rows().get(0).input().birthDate());
         assertEquals(LocalDate.of(2010, 1, 5), preview.rows().get(1).input().birthDate());
         assertEquals(LocalDate.of(1927, 3, 1), preview.rows().get(2).input().birthDate());
+    }
+
+    @Test
+    void documentTypeColumnIsNotTakenAsDocument() {
+        env.process("Proceso B", 1);
+        Workbook wb = new XSSFWorkbook();
+        Sheet sh = wb.createSheet();
+        row(sh, 0, "Nombre", "Tipo de documento", "Número de documento", "Teléfono", "Procedimiento", "Fecha de nacimiento");
+        row(sh, 1, "Laura Mejía", "CC", "43987210", "3105550142", "Proceso B", "13/10/1990");
+
+        ImportService.ImportPreview preview = env.s.imports().parse("tipo.xlsx", wb);
+        assertEquals(1, preview.validCount(), preview.rows().toString());
+        assertEquals("43987210", preview.rows().get(0).input().document());
+    }
+
+    @Test
+    void formulaCellsUseTheirCalculatedValue() {
+        env.process("Proceso B", 1);
+        Workbook wb = new XSSFWorkbook();
+        Sheet sh = wb.createSheet();
+        row(sh, 0, "Nombre", "Documento", "Teléfono", "Procedimiento", "Fecha de nacimiento");
+        Row r = sh.createRow(1);
+        r.createCell(0).setCellFormula("G2&\" \"&H2");
+        r.createCell(1).setCellFormula("I2");
+        r.createCell(2).setCellValue("3105550142");
+        r.createCell(3).setCellValue("Proceso B");
+        r.createCell(4).setCellFormula("DATE(1990,11,2)");
+        r.createCell(6).setCellValue("Sara");
+        r.createCell(7).setCellValue("Gil");
+        r.createCell(8).setCellValue(52998877d);
+        sh.createRow(2).createCell(0).setCellFormula("IF(G3=\"\",\"\",G3)");
+        Row error = sh.createRow(3);
+        error.createCell(0).setCellFormula("NA()");
+        error.createCell(1).setCellValue("77788899");
+        wb.getCreationHelper().createFormulaEvaluator().evaluateAll();
+
+        ImportService.ImportPreview preview = env.s.imports().parse("formulas.xlsx", wb);
+        assertEquals(2, preview.rows().size(), preview.rows().toString());
+        ImportService.ImportRow sara = preview.rows().get(0);
+        assertTrue(sara.valid(), sara.errors().toString());
+        assertEquals("Sara Gil", sara.fullName());
+        assertEquals("52998877", sara.input().document());
+        assertEquals(LocalDate.of(1990, 11, 2), sara.input().birthDate());
+        assertTrue(preview.rows().get(1).errors().contains("Falta el nombre completo."));
+    }
+
+    @Test
+    void impossibleBirthDateIsReportedInsteadOfAdjusted() {
+        env.process("Proceso B", 1);
+        Workbook wb = new XSSFWorkbook();
+        Sheet sh = wb.createSheet();
+        row(sh, 0, "Nombre", "Documento", "Teléfono", "Procedimiento", "Fecha de nacimiento");
+        row(sh, 1, "Ana Uno", "888111", "3105550142", "Proceso B", "31/02/1990");
+
+        ImportService.ImportRow row = env.s.imports().parse("fecha.xlsx", wb).rows().get(0);
+        assertNull(row.input().birthDate());
+        assertTrue(row.errors().get(0).contains("31/02/1990"), row.errors().toString());
     }
 
     @Test

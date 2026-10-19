@@ -9,6 +9,12 @@ import javafx.scene.layout.VBox;
 /** Pantalla del área principal. Guarda su estado en campos y se vuelve a dibujar con {@link #render()}. */
 public abstract class Page {
 
+    /**
+     * Ancho mínimo del área principal: las columnas de la tabla de pacientes en su piso más los márgenes.
+     * Más angosto se apretaban las columnas y las tarjetas; así la ventana se desplaza de lado.
+     */
+    public static final double MIN_WIDTH = 996;
+
     protected final AppContext ctx;
     protected final VBox main = new VBox();
 
@@ -16,7 +22,7 @@ public abstract class Page {
         this.ctx = ctx;
         main.getStyleClass().add("main");
         main.setFillWidth(true);
-        main.setMinWidth(0);
+        main.setMinWidth(co.sv.consultorio.app.ui.Ui.px(MIN_WIDTH));
     }
 
     public Node root() {

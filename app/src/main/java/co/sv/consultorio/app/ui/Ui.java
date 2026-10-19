@@ -12,6 +12,7 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.text.Text;
 import javafx.util.Duration;
 
 import java.util.Locale;
@@ -59,10 +60,33 @@ public final class Ui {
      * No parte palabras: eso dejaba «Octubre» y los avisos en una columna de letras.
      */
     public static Label wrap(String text, String... classes) {
-        Label l = label(text, classes);
+        Label l = label(keepTimes(text), classes);
         l.setWrapText(true);
         l.setMaxWidth(Double.MAX_VALUE);
         l.setMinHeight(Region.USE_PREF_SIZE);
+        return l;
+    }
+
+    /** "9:00 a. m." no se reparte entre dos renglones. */
+    public static String keepTimes(String text) {
+        return text == null ? null : text.replace(" a. m.", "\u00A0a.\u00A0m.").replace(" p. m.", "\u00A0p.\u00A0m.");
+    }
+
+    /** Una etiqueta que baja de renglón nunca queda más angosta que su palabra más larga; si no, JavaFX la parte. */
+    public static Label keepWords(Label l) {
+        Runnable fit = () -> {
+            Text probe = new Text();
+            probe.setFont(l.getFont());
+            double widest = 0;
+            for (String w : (l.getText() == null ? "" : l.getText()).split("\\s+")) {
+                probe.setText(w);
+                widest = Math.max(widest, probe.getLayoutBounds().getWidth());
+            }
+            l.setMinWidth(Math.ceil(widest) + l.snappedLeftInset() + l.snappedRightInset());
+        };
+        l.fontProperty().addListener(o -> fit.run());
+        l.textProperty().addListener(o -> fit.run());
+        fit.run();
         return l;
     }
 
@@ -227,7 +251,7 @@ public final class Ui {
         n.setFocusTraversable(true);
         n.setCursor(javafx.scene.Cursor.HAND);
         n.setOnMouseClicked(e -> {
-            if (e.getButton() == javafx.scene.input.MouseButton.PRIMARY) {
+            if (e.getButton() == javafx.scene.input.MouseButton.PRIMARY && e.getClickCount() == 1) {
                 action.run();
             }
         });

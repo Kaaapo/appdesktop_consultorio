@@ -41,6 +41,14 @@ class PatientServiceTest {
     }
 
     @Test
+    void phoneWith0057PrefixIsNormalized() {
+        Process b = env.process("Proceso B", 1);
+        Patient p = patients.create(new PatientInput("Valeria Acosta", "1020553198", "0057 321-555-0187",
+                b.id(), TestEnv.TODAY.minusYears(28)));
+        assertEquals("3215550187", p.phone());
+    }
+
+    @Test
     void duplicateDocumentIsRejectedWithPatientName() {
         Process b = env.process("Proceso B", 1);
         env.patient("Camila", "Rojas", "1017220431", b, TestEnv.TODAY);
@@ -123,6 +131,13 @@ class PatientServiceTest {
         assertEquals("Laura Mejía", search("MEJIA").get(0).patient().fullName());
         assertEquals("Laura Mejía", search("43.987").get(0).patient().fullName());
         assertTrue(search("zzz").isEmpty());
+    }
+
+    @Test
+    void searchIgnoresExtraSpaces() {
+        Process b = env.process("Proceso B", 1);
+        env.patient("Laura", "Mejía", "43987210", b, TestEnv.TODAY);
+        assertEquals(1, search("  laura   MEJIA ").size());
     }
 
     @Test

@@ -159,7 +159,7 @@ public final class PacientesPage extends Page {
         waBox.setAccessibleText("Filtrar por WhatsApp");
         GridPane row1 = new GridPane();
         row1.setHgap(Ui.px(12));
-        double[] percents = {36.6, 21.8, 20.8, 20.8};
+        double[] percents = {35.6, 21.0, 20.4, 23.0};
         for (double pc : percents) {
             ColumnConstraints c = new ColumnConstraints();
             c.setPercentWidth(pc);
@@ -459,8 +459,10 @@ public final class PacientesPage extends Page {
         citaChip.getStyleClass().add("sm");
         java.time.LocalDate avisadoEl = o.appointment() == null || o.appointment().notifiedAt() == null
                 ? null : o.appointment().notifiedAt().toLocalDate();
-        Node waChip = Chip.clickable(Chip.whatsApp(o.waStatus(), avisadoEl),
-                () -> WhatsAppFlow.forPatient(ctx, o), o.waStatus().label());
+        HBox wa = o.waStatus() == co.sv.consultorio.domain.WaStatus.AVISADO && avisadoEl != null
+                ? Chip.avisado("Avisado\n" + Fmt.shortDate(avisadoEl))
+                : Chip.whatsApp(o.waStatus(), avisadoEl);
+        Node waChip = Chip.clickable(wa, () -> WhatsAppFlow.forPatient(ctx, o), o.waStatus().label());
         waChip.getStyleClass().add("sm");
         Button more = Ui.ghost(Icons.DOTS, "Más acciones", 20);
         more.setOnAction(e -> openMenu(more, o));

@@ -12,6 +12,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.YearMonth;
@@ -132,6 +133,29 @@ class AppointmentServiceTest {
         assertEquals(AppointmentService.SlotState.PAST, state(slots, LocalTime.of(9, 0)));
         assertEquals(AppointmentService.SlotState.FREE, state(slots, LocalTime.of(14, 0)));
         assertEquals(AppointmentService.SlotState.BUSY, state(slots, LocalTime.of(15, 30)));
+    }
+
+    @Test
+    void rescheduleOpensHoursBlockedOnlyByThatAppointment() {
+        Appointment saved = appts.assign(camila.id(), AppointmentType.CITA, FRI_1030).saved();
+        LocalDate friday = FRI_1030.toLocalDate();
+        assertEquals(AppointmentService.SlotState.BUSY, state(appts.daySlots(friday), LocalTime.of(10, 0)));
+        assertEquals(AppointmentService.SlotState.BUSY, state(appts.daySlots(friday), LocalTime.of(11, 30)));
+
+        List<AppointmentService.Slot> moving = appts.daySlots(friday, saved.id());
+        assertEquals(AppointmentService.SlotState.BUSY, state(moving, LocalTime.of(10, 30)));
+        assertEquals(AppointmentService.SlotState.FREE, state(moving, LocalTime.of(10, 0)));
+        assertEquals(AppointmentService.SlotState.FREE, state(moving, LocalTime.of(9, 30)));
+        assertEquals(AppointmentService.SlotState.FREE, state(moving, LocalTime.of(11, 30)));
+
+        Patient other = env.patient("Laura", "Mejía", "43987210", b, TestEnv.TODAY);
+        appts.assign(other.id(), AppointmentType.CITA, FRI_1030.withHour(15).withMinute(0));
+        List<AppointmentService.Slot> still = appts.daySlots(friday, saved.id());
+        assertEquals(AppointmentService.SlotState.BUSY, state(still, LocalTime.of(14, 30)));
+        assertEquals(AppointmentService.SlotState.FREE, state(still, LocalTime.of(10, 0)));
+
+        appts.reschedule(saved.id(), AppointmentType.CITA, FRI_1030.withHour(10).withMinute(0));
+        assertEquals(LocalTime.of(10, 0), appts.get(saved.id()).startsAt().toLocalTime());
     }
 
     @Test

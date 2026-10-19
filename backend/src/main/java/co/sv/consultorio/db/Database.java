@@ -3,6 +3,7 @@ package co.sv.consultorio.db;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -14,6 +15,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 /**
@@ -128,7 +130,7 @@ public final class Database implements AutoCloseable {
                 T result = work.get();
                 connection.commit();
                 return result;
-            } catch (RuntimeException e) {
+            } catch (RuntimeException | Error e) {
                 connection.rollback();
                 throw e;
             } finally {
@@ -173,23 +175,39 @@ public final class Database implements AutoCloseable {
         }
         Path dir = file.toAbsolutePath().getParent().resolve("backups");
         Path target = dir.resolve(baseName() + "-" + today + ".db");
+        Path partial = dir.resolve(target.getFileName() + ".tmp");
+        Pattern copyName = Pattern.compile(Pattern.quote(baseName()) + "-\\d{4}-\\d{2}-\\d{2}\\.db");
         try {
             Files.createDirectories(dir);
             if (!Files.exists(target)) {
-                execute("VACUUM INTO '" + target.toString().replace("'", "''") + "'");
+                // Una copia cortada (disco lleno, apagón) no debe quedar con el nombre de una copia válida.
+                Files.deleteIfExists(partial);
+                execute("VACUUM INTO '" + partial.toString().replace("'", "''") + "'");
+                Files.move(partial, target, StandardCopyOption.ATOMIC_MOVE);
             }
             List<Path> copies;
             try (Stream<Path> s = Files.list(dir)) {
-                copies = s.filter(p -> p.getFileName().toString().startsWith(baseName() + "-"))
+                copies = s.filter(p -> copyName.matcher(p.getFileName().toString()).matches())
                         .sorted(Comparator.comparing(Path::getFileName).reversed())
                         .toList();
             }
             for (int i = keep; i < copies.size(); i++) {
                 Files.deleteIfExists(copies.get(i));
             }
-        } catch (IOException | DataAccessException e) {
+        } catch (IOException | RuntimeException e) {
+            partial.toFile().delete();
             System.err.println("No se pudo crear la copia de seguridad: " + e.getMessage());
         }
+    }
+
+    /** Copia consistente para llevar a otra memoria. No reemplaza las copias diarias. */
+    public void copyTo(Path target) throws IOException {
+        Path parent = target.toAbsolutePath().getParent();
+        if (parent != null) {
+            Files.createDirectories(parent);
+        }
+        Files.deleteIfExists(target);
+        execute("VACUUM INTO '" + target.toAbsolutePath().toString().replace("'", "''") + "'");
     }
 
     private String baseName() {

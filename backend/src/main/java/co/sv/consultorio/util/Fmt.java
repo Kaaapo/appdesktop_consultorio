@@ -93,9 +93,9 @@ public final class Fmt {
         return time12(dt.toLocalTime());
     }
 
-    /** Fecha para el mensaje de WhatsApp: "viernes 16 de octubre a las 10:30 a. m.". */
+    /** Fecha para el mensaje de WhatsApp: "viernes 16 de octubre a las 10:30 a. m." o "sábado 17 de octubre a la 1:00 p. m.". */
     public static String messageDate(LocalDateTime dt) {
-        return longDateDow(dt.toLocalDate()) + " a las " + time12(dt);
+        return longDateDow(dt.toLocalDate()) + (dt.getHour() % 12 == 1 ? " a la " : " a las ") + time12(dt);
     }
 
     /** "viernes 16 de octubre, 10:30 a. m." */

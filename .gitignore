@@ -1,5 +1,6 @@
 target/
 dist/
+dist-usb/
 *.db
 *.db-journal
 .idea/

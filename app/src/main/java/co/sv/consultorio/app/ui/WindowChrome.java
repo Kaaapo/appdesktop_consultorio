@@ -115,8 +115,10 @@ public final class WindowChrome {
     public void fitToScreen() {
         Rectangle2D vb = screenOf().getVisualBounds();
         if (stage.getWidth() >= vb.getWidth() - 40 || stage.getHeight() >= vb.getHeight() - 40) {
-            restoreBounds = new Rectangle2D(vb.getMinX() + 40, vb.getMinY() + 30,
-                    Math.min(stage.getWidth(), vb.getWidth() - 80), Math.min(stage.getHeight(), vb.getHeight() - 60));
+            double w = Math.max(stage.getMinWidth(), Math.min(stage.getWidth(), vb.getWidth() - 80));
+            double h = Math.max(stage.getMinHeight(), Math.min(stage.getHeight(), vb.getHeight() - 60));
+            restoreBounds = new Rectangle2D(vb.getMinX() + Math.max(0, (vb.getWidth() - w) / 2),
+                    vb.getMinY() + Math.max(0, (vb.getHeight() - h) / 2), w, h);
             maximized = false;
             toggleMaximizeFromRestore(vb);
         } else {

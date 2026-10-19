@@ -20,9 +20,11 @@ import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextFormatter;
 import javafx.scene.layout.ColumnConstraints;
+import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 
 import java.util.List;
@@ -145,12 +147,15 @@ public final class ProcesosPage extends Page {
         g.add(fMonths, 1, 0);
 
         Field fTemplate = new Field("Mensaje predeterminado de WhatsApp", template);
-        HBox inserts = new HBox(Ui.px(8), Ui.label("Insertar:", "muted", "fs13"));
+        Label insertLabel = Ui.label("Insertar:", "muted", "fs13");
+        insertLabel.setMinWidth(Region.USE_PREF_SIZE);
+        FlowPane inserts = new FlowPane(Ui.px(8), Ui.px(8), insertLabel);
         inserts.setAlignment(Pos.CENTER_LEFT);
         for (String v : List.of("{nombre}", "{tipo}", "{procedimiento}", "{fecha}")) {
             Button ch = new Button(v);
             ch.getStyleClass().setAll("button", "ch");
             ch.setMnemonicParsing(false);
+            ch.setMinWidth(Region.USE_PREF_SIZE);
             ch.setOnAction(e -> {
                 template.insertText(template.getCaretPosition(), v);
                 template.requestFocus();

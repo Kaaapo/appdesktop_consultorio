@@ -22,6 +22,7 @@ public final class Seg<T> extends HBox {
     public Seg(List<T> values, Function<T, String> label, T selected, Consumer<T> onChange) {
         getStyleClass().add("seg");
         setAlignment(Pos.CENTER_LEFT);
+        setMinWidth(Region.USE_PREF_SIZE);
         setMaxWidth(Region.USE_PREF_SIZE);
         setMaxHeight(Region.USE_PREF_SIZE);
         for (T v : values) {

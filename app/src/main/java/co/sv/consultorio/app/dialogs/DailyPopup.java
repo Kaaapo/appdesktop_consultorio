@@ -65,7 +65,7 @@ public final class DailyPopup {
         ScrollPane sp = new ScrollPane(list);
         sp.setFitToWidth(true);
         sp.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
-        sp.setMinHeight(Ui.px(230));
+        sp.setMinHeight(Ui.px(180));
         sp.setPrefHeight(Ui.px(300));
         sp.setMaxHeight(Ui.px(300));
         VBox.setMargin(summary, new javafx.geometry.Insets(Ui.px(-6), 0, 0, 0));

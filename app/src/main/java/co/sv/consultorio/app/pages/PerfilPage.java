@@ -14,6 +14,7 @@ import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.stage.FileChooser;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
@@ -68,7 +69,7 @@ public final class PerfilPage extends Page {
         VBox session = section(14, "Sesión",
                 Ui.wrap("Al cerrar sesión, el programa vuelve a pedir la contraseña.", "muted", "fs15"), logout);
 
-        VBox left = new VBox(Ui.px(22), heroCard, appearance, session);
+        VBox left = new VBox(Ui.px(22), heroCard, appearance, copies(), session);
         left.setPrefWidth(Ui.px(360));
         HBox.setHgrow(left, Priority.ALWAYS);
 
@@ -92,6 +93,30 @@ public final class PerfilPage extends Page {
             }
         }
         return c;
+    }
+
+    private Node copies() {
+        Button save = Ui.btn2("Guardar copia");
+        save.setOnAction(e -> {
+            FileChooser fc = new FileChooser();
+            fc.setTitle("Guardar copia de los pacientes");
+            fc.setInitialFileName("consultorio-copia-" + s().time().today() + ".db");
+            fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("Base de datos", "*.db"));
+            java.io.File file = fc.showSaveDialog(ctx.stage());
+            if (file == null) {
+                return;
+            }
+            try {
+                s().db().copyTo(file.toPath());
+                shell().toast("Copia guardada. Llévala en una memoria distinta a este computador.");
+            } catch (java.io.IOException ex) {
+                shell().error("No se pudo guardar la copia.");
+            }
+        });
+        return section(14, "Copia de los datos",
+                Ui.wrap("Las copias diarias quedan en este computador. Guarda otra en una memoria USB por si el disco falla.",
+                        "muted", "fs15"),
+                save);
     }
 
     private Node passwordCard() {
