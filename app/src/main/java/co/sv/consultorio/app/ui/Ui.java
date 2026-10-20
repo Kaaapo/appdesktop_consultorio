@@ -72,6 +72,22 @@ public final class Ui {
         return text == null ? null : text.replace(" a. m.", "\u00A0a.\u00A0m.").replace(" p. m.", "\u00A0p.\u00A0m.");
     }
 
+    /**
+     * El texto puede ocupar varias líneas, pero no se sale de su caja.
+     * Una palabra larguísima, sin espacios, se corta dentro del ancho que le toca.
+     */
+    public static Label stayInside(Label l) {
+        l.setMinWidth(0);
+        l.setMaxWidth(Double.MAX_VALUE);
+        javafx.scene.shape.Rectangle clip = new javafx.scene.shape.Rectangle();
+        l.layoutBoundsProperty().addListener((o, a, b) -> {
+            clip.setWidth(Math.max(0, b.getWidth()));
+            clip.setHeight(Math.max(0, b.getHeight()));
+        });
+        l.setClip(clip);
+        return l;
+    }
+
     /** Una etiqueta que baja de renglón nunca queda más angosta que su palabra más larga; si no, JavaFX la parte. */
     public static Label keepWords(Label l) {
         Runnable fit = () -> {

@@ -18,16 +18,16 @@ public class PatientRepository {
 
     public long insert(Patient p) {
         return db.insert("""
-                        INSERT INTO patient (full_name, document, phone, process_id, birth_date, registered_at, active)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                p.fullName(), p.document(), p.phone(), p.processId(), p.birthDate(), p.registeredAt(), p.active());
+                        INSERT INTO patient (full_name, document, phone, country_code, process_id, birth_date, registered_at, active)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                p.fullName(), p.document(), p.phone(), p.countryCode(), p.processId(), p.birthDate(), p.registeredAt(), p.active());
     }
 
     public void update(Patient p) {
         db.update("""
-                        UPDATE patient SET full_name = ?, document = ?, phone = ?, process_id = ?, birth_date = ?, active = ?
+                        UPDATE patient SET full_name = ?, document = ?, phone = ?, country_code = ?, process_id = ?, birth_date = ?, active = ?
                         WHERE id = ?""",
-                p.fullName(), p.document(), p.phone(), p.processId(), p.birthDate(), p.active(), p.id());
+                p.fullName(), p.document(), p.phone(), p.countryCode(), p.processId(), p.birthDate(), p.active(), p.id());
     }
 
     public void setActive(long id, boolean active) {
@@ -57,9 +57,24 @@ public class PatientRepository {
                 rs.getString("full_name"),
                 rs.getString("document"),
                 rs.getString("phone"),
-                rs.getLong("process_id"),
+                country(rs),
+                processId(rs),
                 DbTypes.date(rs.getString("birth_date")),
                 DbTypes.dateTime(rs.getString("registered_at")),
                 rs.getInt("active") == 1);
+    }
+
+    private static Long processId(ResultSet rs) throws SQLException {
+        long id = rs.getLong("process_id");
+        return rs.wasNull() ? null : id;
+    }
+
+    private static String country(ResultSet rs) throws SQLException {
+        try {
+            String code = rs.getString("country_code");
+            return code == null || code.isBlank() ? "57" : code;
+        } catch (SQLException e) {
+            return "57";
+        }
     }
 }

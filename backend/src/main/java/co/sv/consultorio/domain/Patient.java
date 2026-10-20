@@ -9,13 +9,14 @@ public record Patient(
         String fullName,
         String document,
         String phone,
-        long processId,
+        String countryCode,
+        Long processId,
         LocalDate birthDate,
         LocalDateTime registeredAt,
         boolean active) {
 
     public Patient withActive(boolean value) {
-        return new Patient(id, fullName, document, phone, processId, birthDate, registeredAt, value);
+        return new Patient(id, fullName, document, phone, countryCode, processId, birthDate, registeredAt, value);
     }
 
     /** Años cumplidos a {@code today}, o null si no hay fecha de nacimiento. */

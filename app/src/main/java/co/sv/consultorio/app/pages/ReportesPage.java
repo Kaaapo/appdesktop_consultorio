@@ -210,7 +210,7 @@ public final class ReportesPage extends Page {
         VBox head = new VBox(Ui.px(6), Ui.eyebrow("Vista previa"), title, Ui.label(s().reports().describe(r), "muted", "fs14"));
         VBox bars = new VBox(Ui.px(12));
         counts.forEach((name, n) -> {
-            Label l = Ui.wrap(name, "fs15");
+            Label l = Ui.stayInside(Ui.wrap(name, "fs15"));
             l.setMinWidth(Ui.px(180));
             l.setPrefWidth(Region.USE_COMPUTED_SIZE);
             l.setMaxWidth(Ui.px(480));
@@ -291,8 +291,9 @@ public final class ReportesPage extends Page {
     }
 
     private Node importCard() {
-        Label t = Ui.wrap("Carga la lista que ya tienes. Columnas esperadas: nombre, apellido, documento, teléfono, "
-                + "procedimiento y fecha de nacimiento. Antes de guardar verás una revisión.", "muted", "fs15");
+        Label t = Ui.wrap("Carga la lista que ya tienes. Obligatorios: nombre, documento, indicativo, teléfono "
+                + "y fecha de nacimiento. El procedimiento puede ir vacío y se asigna después, al editar. "
+                + "Antes de guardar verás una revisión.", "muted", "fs15");
         t.setLineSpacing(Ui.px(3));
         Button template = Ui.btn2("Descargar plantilla", Icons.DOWNLOAD);
         template.setOnAction(e -> downloadTemplate());

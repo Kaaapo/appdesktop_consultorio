@@ -152,7 +152,9 @@ public final class Database implements AutoCloseable {
         PreparedStatement ps = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
         for (int i = 0; i < params.length; i++) {
             Object p = params[i];
-            if (p instanceof Boolean b) {
+            if (p == null) {
+                ps.setNull(i + 1, java.sql.Types.NULL);
+            } else if (p instanceof Boolean b) {
                 ps.setInt(i + 1, b ? 1 : 0);
             } else if (p instanceof Enum<?> en) {
                 ps.setString(i + 1, en.name());

@@ -174,10 +174,11 @@ public final class DailyPopup {
         ColumnConstraints c2 = new ColumnConstraints();
         c2.setHalignment(HPos.RIGHT);
         g.getColumnConstraints().addAll(c0, c1, c2);
-        Label w = Ui.wrap(when, "w600");
+        Label w = Ui.stayInside(Ui.wrap(when, "w600"));
         w.setMaxWidth(Ui.px(128));
-        Label t = Ui.wrap(title, "w500");
-        Label s = Ui.wrap(sub, "muted", "fs14");
+        Label t = Ui.stayInside(Ui.wrap(title, "w500"));
+        Ui.tip(t, title);
+        Label s = Ui.stayInside(Ui.wrap(sub, "muted", "fs14"));
         VBox mid = new VBox(t, s);
         g.add(w, 0, 0);
         g.add(mid, 1, 0);

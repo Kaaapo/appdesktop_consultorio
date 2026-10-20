@@ -93,6 +93,35 @@ final class Migrations {
                     "ALTER TABLE appointment_v2 RENAME TO appointment",
                     "CREATE INDEX ix_appointment_starts ON appointment(starts_at)",
                     "CREATE INDEX ix_appointment_patient ON appointment(patient_id)"
+            },
+            // v3: indicativo de país, aparte del teléfono local
+            new String[]{
+                    "ALTER TABLE patient ADD COLUMN country_code TEXT NOT NULL DEFAULT '57'"
+            },
+            // v4: el procedimiento puede quedar vacío (se asigna después, al editar)
+            new String[]{
+                    "PRAGMA foreign_keys = OFF",
+                    """
+                    CREATE TABLE patient_v4 (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        full_name TEXT,
+                        document TEXT NOT NULL UNIQUE,
+                        phone TEXT NOT NULL,
+                        country_code TEXT NOT NULL DEFAULT '57',
+                        process_id INTEGER REFERENCES process(id),
+                        birth_date TEXT,
+                        registered_at TEXT NOT NULL,
+                        active INTEGER NOT NULL DEFAULT 1
+                    )""",
+                    """
+                    INSERT INTO patient_v4 (id, full_name, document, phone, country_code, process_id, birth_date, registered_at, active)
+                    SELECT id, full_name, document, phone, country_code, process_id, birth_date, registered_at, active
+                    FROM patient""",
+                    "DROP TABLE patient",
+                    "ALTER TABLE patient_v4 RENAME TO patient",
+                    "CREATE INDEX ix_patient_registered ON patient(registered_at DESC)",
+                    "CREATE INDEX ix_patient_process ON patient(process_id)",
+                    "PRAGMA foreign_keys = ON"
             }
     );
 
@@ -108,12 +137,31 @@ final class Migrations {
         for (int v = current; v < VERSIONS.size(); v++) {
             String[] statements = VERSIONS.get(v);
             int target = v + 1;
-            db.inTransaction(() -> {
-                for (String sql : statements) {
-                    db.execute(sql);
+            boolean toggleFk = false;
+            for (String sql : statements) {
+                if (sql.strip().regionMatches(true, 0, "PRAGMA foreign_keys", 0, "PRAGMA foreign_keys".length())) {
+                    toggleFk = true;
+                    break;
                 }
-                db.setUserVersion(target);
-            });
+            }
+            if (toggleFk) {
+                db.execute("PRAGMA foreign_keys = OFF");
+            }
+            try {
+                db.inTransaction(() -> {
+                    for (String sql : statements) {
+                        if (sql.strip().regionMatches(true, 0, "PRAGMA foreign_keys", 0, "PRAGMA foreign_keys".length())) {
+                            continue;
+                        }
+                        db.execute(sql);
+                    }
+                    db.setUserVersion(target);
+                });
+            } finally {
+                if (toggleFk) {
+                    db.execute("PRAGMA foreign_keys = ON");
+                }
+            }
         }
     }
 }

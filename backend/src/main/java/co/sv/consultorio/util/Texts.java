@@ -12,15 +12,28 @@ public final class Texts {
         return s == null ? "" : s.replaceAll("\\D", "");
     }
 
-    /** Deja solo dígitos y quita el indicativo de Colombia (+57 o 0057) si viene incluido. */
-    public static String normalizePhone(String s) {
+    /** Indicativo sin signos. Vacío significa Colombia. */
+    public static String countryCode(String s) {
         String d = digitsOnly(s);
-        if (d.length() == 14 && d.startsWith("0057")) {
-            d = d.substring(4);
-        } else if (d.length() == 12 && d.startsWith("57")) {
-            d = d.substring(2);
+        return d.isEmpty() ? "57" : d;
+    }
+
+    /** Teléfono local. Si el país es Colombia, quita un 57 o 0057 que hayan escrito en el número. */
+    public static String localPhone(String s, String country) {
+        String d = digitsOnly(s);
+        if ("57".equals(countryCode(country))) {
+            if (d.length() == 14 && d.startsWith("0057")) {
+                d = d.substring(4);
+            } else if (d.length() == 12 && d.startsWith("57")) {
+                d = d.substring(2);
+            }
         }
         return d;
+    }
+
+    /** Deja solo dígitos y quita el indicativo de Colombia (+57 o 0057) si viene incluido. */
+    public static String normalizePhone(String s) {
+        return localPhone(s, "57");
     }
 
     /** "3165550166" → "316 555 0166" */

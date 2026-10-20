@@ -8,5 +8,11 @@ public record PatientInput(
         String document,
         String phone,
         Long processId,
-        LocalDate birthDate) {
+        LocalDate birthDate,
+        String countryCode) {
+
+    /** Sin indicativo: se asume Colombia (57). */
+    public PatientInput(String fullName, String document, String phone, Long processId, LocalDate birthDate) {
+        this(fullName, document, phone, processId, birthDate, "57");
+    }
 }

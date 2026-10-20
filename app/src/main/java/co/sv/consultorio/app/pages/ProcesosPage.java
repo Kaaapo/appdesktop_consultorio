@@ -89,7 +89,7 @@ public final class ProcesosPage extends Page {
         for (Process p : procs) {
             int n = counts.getOrDefault(p.id(), 0);
             total += n;
-            Label nm = Ui.wrap(p.name(), "w600");
+            Label nm = Ui.stayInside(Ui.wrap(p.name(), "w600"));
             Ui.tip(nm, p.name());
             Label msg = Ui.wrap(p.messageTemplate(), "muted", "fs13");
             msg.setLineSpacing(Ui.px(2));

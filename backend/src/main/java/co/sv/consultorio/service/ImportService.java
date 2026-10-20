@@ -39,10 +39,10 @@ import java.util.Set;
 /** Importación de pacientes desde Excel con revisión previa antes de guardar. */
 public class ImportService {
 
-    public static final String[] TEMPLATE_COLUMNS = {"Nombre", "Documento", "Teléfono", "Procedimiento",
+    public static final String[] TEMPLATE_COLUMNS = {"Nombre", "Documento", "Indicativo", "Teléfono", "Procedimiento",
             "Fecha de nacimiento"};
 
-    enum Col { NAME, LAST, DOCUMENT, PHONE, PROCESS, BIRTH, REGISTERED }
+    enum Col { NAME, LAST, DOCUMENT, PHONE, COUNTRY, PROCESS, BIRTH, REGISTERED }
 
     public record ImportRow(int rowNumber, PatientInput input, String processName, LocalDate registered,
                             List<String> errors) {
@@ -66,7 +66,8 @@ public class ImportService {
     }
 
     private static final DateTimeFormatter[] DATE_FORMATS = {
-            strict("d/M/uuuu"), strict("d-M-uuuu"), strict("uuuu-M-d"), strict("d.M.uuuu"), strict("d/M/uu")};
+            strict("uuuu-M-d"), strict("uuuu/M/d"), strict("uuuu.M.d"),
+            strict("d/M/uuuu"), strict("d-M-uuuu"), strict("d.M.uuuu"), strict("d/M/uu")};
 
     private final Database db;
     private final PatientService patients;
@@ -104,7 +105,7 @@ public class ImportService {
                 c.setCellValue(TEMPLATE_COLUMNS[i]);
                 c.setCellStyle(head);
                 sh.setColumnWidth(i, 22 * 256);
-                sh.setDefaultColumnStyle(i, i == 4 ? date : text);
+                sh.setDefaultColumnStyle(i, TEMPLATE_COLUMNS[i].contains("nacimiento") ? date : text);
             }
             sh.createFreezePane(0, 1);
 
@@ -112,11 +113,13 @@ public class ImportService {
             String[] lines = {
                     "Cómo llenar la plantilla",
                     "",
-                    "• Una fila por paciente, desde la fila 2 de la hoja \"Pacientes\".",
+                    "• Una fila por paciente, desde la fila 2. La columna del nombre puede llamarse Nombre o Paciente.",
                     "• Documento: solo números (los puntos y espacios se quitan solos). No se puede repetir.",
-                    "• Teléfono: celular de 10 dígitos.",
-                    "• Procedimiento: debe existir en el programa con el mismo nombre (ver lista abajo).",
-                    "• Fecha de nacimiento: formato dd/mm/aaaa. La edad se calcula sola.",
+                    "• Indicativo: obligatorio. Código del país, sin +. Colombia es 57.",
+                    "• Teléfono: en Colombia, 10 dígitos. En otro país, entre 6 y 15.",
+                    "• Procedimiento: opcional. Si se deja vacío, el paciente se guarda y se asigna después, al editarlo.",
+                    "• Si se escribe un procedimiento, tiene que existir en el programa con el mismo nombre (ver lista abajo).",
+                    "• Fecha de nacimiento: obligatoria. Vale dd/mm/aaaa o aaaa-mm-dd. La edad se calcula sola.",
                     "• Opcional: columna \"Fecha de registro\".",
                     "",
                     "Procedimientos existentes:"};
@@ -163,7 +166,7 @@ public class ImportService {
         }
         if (headerRow < 0) {
             throw new ValidationException(Map.of("file",
-                    "No encontré los encabezados. Usa la plantilla: nombre, documento, teléfono, procedimiento y fecha de nacimiento."));
+                    "No encontré los encabezados. Usa la plantilla: nombre, documento, indicativo, teléfono y fecha de nacimiento."));
         }
 
         List<ImportRow> rows = new ArrayList<>();
@@ -187,18 +190,20 @@ public class ImportService {
         }
         String doc = Texts.digitsOnly(text(row, cols.get(Col.DOCUMENT), fmt));
         String phone = text(row, cols.get(Col.PHONE), fmt);
+        String country = text(row, cols.get(Col.COUNTRY), fmt);
+        if (Texts.digitsOnly(country).isEmpty()) {
+            errors.add("Falta el indicativo.");
+        }
         String procName = Texts.cleanName(text(row, cols.get(Col.PROCESS), fmt));
         LocalDate today = time.today();
         LocalDate birth = date(row, cols.get(Col.BIRTH), fmt, "nacimiento", errors, today);
         LocalDate registered = date(row, cols.get(Col.REGISTERED), fmt, "registro", errors, today);
 
         Process proc = findProcess(procName);
-        if (procName.isEmpty()) {
-            errors.add("Falta el procedimiento.");
-        } else if (proc == null) {
+        if (!procName.isEmpty() && proc == null) {
             errors.add("El procedimiento \"" + procName + "\" no existe. Créalo primero en Procedimientos.");
         }
-        PatientInput input = new PatientInput(name, doc, phone, proc == null ? null : proc.id(), birth);
+        PatientInput input = new PatientInput(name, doc, phone, proc == null ? null : proc.id(), birth, country);
         try {
             patients.validate(0, input, null);
         } catch (ValidationException e) {
@@ -225,9 +230,9 @@ public class ImportService {
                 if (!row.valid()) {
                     continue;
                 }
-                Patient p = patients.validate(0, row.input(), null);
+                Patient p = patients.validate(0, row.input(), null, false);
                 LocalDateTime reg = row.registered() == null ? now : row.registered().atTime(now.toLocalTime());
-                patientRepo.insert(new Patient(0, p.fullName(), p.document(), p.phone(), p.processId(),
+                patientRepo.insert(new Patient(0, p.fullName(), p.document(), p.phone(), p.countryCode(), p.processId(),
                         p.birthDate(), reg, true));
                 n++;
             }
@@ -257,11 +262,14 @@ public class ImportService {
         if (h.startsWith("apellido")) {
             return Col.LAST;
         }
-        if (h.startsWith("nombre")) {
+        if (h.startsWith("nombre") || h.equals("paciente") || h.startsWith("paciente ")) {
             return Col.NAME;
         }
         if (h.contains("documento") || h.contains("cedula") || h.equals("cc") || h.equals("doc")) {
             return h.startsWith("tipo") ? null : Col.DOCUMENT;
+        }
+        if (h.contains("indicativo") || h.contains("pais") || h.contains("country")) {
+            return Col.COUNTRY;
         }
         if (h.contains("telefono") || h.contains("celular") || h.equals("tel")) {
             return Col.PHONE;
@@ -307,6 +315,17 @@ public class ImportService {
         return c.getCellType() == CellType.FORMULA ? c.getCachedFormulaResultType() : c.getCellType();
     }
 
+    /** Quita la hora si la celda trae «1990-10-13 00:00:00» o «1990-10-13T00:00:00». */
+    private static String dateOnly(String raw) {
+        for (int i = 0; i < raw.length(); i++) {
+            char ch = raw.charAt(i);
+            if (ch == ' ' || ch == 'T') {
+                return raw.substring(0, i).trim();
+            }
+        }
+        return raw;
+    }
+
     private static DateTimeFormatter strict(String pattern) {
         return DateTimeFormatter.ofPattern(pattern).withResolverStyle(ResolverStyle.STRICT);
     }
@@ -325,10 +344,11 @@ public class ImportService {
                 return c.getLocalDateTimeCellValue().toLocalDate();
             }
         }
-        String s = fmt.formatCellValue(c).trim();
-        if (s.isEmpty()) {
+        String raw = fmt.formatCellValue(c).trim();
+        if (raw.isEmpty()) {
             return null;
         }
+        String s = dateOnly(raw);
         for (DateTimeFormatter f : DATE_FORMATS) {
             try {
                 return pivotTwoDigitYear(s, LocalDate.parse(s, f), today);
@@ -336,7 +356,7 @@ public class ImportService {
                 // probar el siguiente formato
             }
         }
-        errors.add("Fecha de " + label + " no válida: \"" + s + "\" (usa dd/mm/aaaa).");
+        errors.add("Fecha de " + label + " no válida: \"" + raw + "\" (usa dd/mm/aaaa o aaaa-mm-dd).");
         return null;
     }
 

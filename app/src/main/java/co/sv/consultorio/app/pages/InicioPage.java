@@ -158,6 +158,8 @@ public final class InicioPage extends Page {
     private Node pendingCard(LocalDate today, List<DashboardService.PendingItem> items) {
         VBox card = cardWithHead("Por avisar por WhatsApp", "Sin mensaje, o escribieron y no contestaron");
         card.setPrefWidth(Ui.px(440));
+        card.setMinWidth(0);
+        card.setMaxWidth(Double.MAX_VALUE);
         if (items.isEmpty()) {
             card.getChildren().add(emptyRow("Todo al día: no hay pacientes por avisar."));
         }
@@ -204,10 +206,13 @@ public final class InicioPage extends Page {
     }
 
     static VBox nameBlock(String name, String sub) {
-        Label n = Ui.keepWords(Ui.wrap(name == null ? "" : name, "w600"));
+        Label n = Ui.stayInside(Ui.wrap(name == null ? "" : name, "w600"));
         Ui.tip(n, name == null ? "" : name);
-        Label s = Ui.keepWords(Ui.wrap(sub, "muted", "fs14"));
+        Label s = Ui.stayInside(Ui.wrap(sub, "muted", "fs14"));
+        Ui.tip(s, sub == null ? "" : sub);
         VBox b = new VBox(n, s);
+        b.setMinWidth(0);
+        b.setPrefWidth(0);
         HBox.setHgrow(b, Priority.ALWAYS);
         b.setMaxWidth(Double.MAX_VALUE);
         return b;

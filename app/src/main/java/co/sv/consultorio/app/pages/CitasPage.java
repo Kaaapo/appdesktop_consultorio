@@ -426,9 +426,9 @@ public final class CitasPage extends Page {
         String sub = "CC " + o.patient().document() + proc + " · "
                 + (o.citaCount() == 1 ? "1 cita" : o.citaCount() + " citas")
                 + (o.hasAppointment() ? "" : " · " + o.nextStep(today).note(o.nextCitaNumber()));
-        Label nm = Ui.wrap(o.patient().fullName(), "nm");
+        Label nm = Ui.stayInside(Ui.wrap(o.patient().fullName(), "nm"));
         Ui.tip(nm, o.patient().fullName());
-        Label sb = Ui.wrap(sub, "sub");
+        Label sb = Ui.stayInside(Ui.wrap(sub, "sub"));
         VBox text = new VBox(Ui.px(1), nm, sb);
         text.setMinWidth(0);
         HBox.setHgrow(text, Priority.ALWAYS);

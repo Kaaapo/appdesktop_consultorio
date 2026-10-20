@@ -40,6 +40,7 @@ public final class PacienteFormPage extends Page {
 
     private final TextField fullName = new TextField();
     private final TextField document = new TextField();
+    private final TextField country = new TextField();
     private final TextField phone = new TextField();
     private Choice<Long> process;
     private final DateField birthDate = new DateField(null);
@@ -102,7 +103,22 @@ public final class PacienteFormPage extends Page {
         fName = new Field("Nombre completo", fullName);
         fDoc = new Field("Número de CC", document).hint("Solo números: los puntos y espacios se quitan solos.");
         fDoc.below(dupBox);
-        fPhone = new Field("Teléfono", phone);
+        country.setPromptText("57");
+        country.setText("57");
+        country.setPrefWidth(Ui.px(72));
+        country.setTextFormatter(new TextFormatter<String>(c -> {
+            if (c.isContentChange()) {
+                String digits = Texts.digitsOnly(c.getText());
+                c.setText(digits.length() > 4 ? digits.substring(0, 4) : digits);
+            }
+            return c;
+        }));
+        phone.setPromptText("300 000 0000");
+        HBox.setHgrow(phone, Priority.ALWAYS);
+        HBox phoneRow = new HBox(Ui.px(8), country, phone);
+        phoneRow.setAlignment(Pos.CENTER_LEFT);
+        fPhone = new Field("Indicativo y teléfono", phoneRow)
+                .hint("En la lista se ve solo el número. WhatsApp usa el indicativo. Colombia: 57 y 10 dígitos.");
 
         document.setTextFormatter(new TextFormatter<String>(c -> {
             if (c.isContentChange()) {
@@ -111,7 +127,6 @@ public final class PacienteFormPage extends Page {
             return c;
         }));
         document.textProperty().addListener((o, a, b) -> checkDuplicate());
-        phone.setPromptText("300 000 0000");
         fullName.textProperty().addListener((o, a, b) -> updateHero());
         birthDate.valueProperty().addListener((o, a, b) -> refreshAge());
         fBirth = new Field("Fecha de nacimiento", birthDate).below(age);
@@ -176,6 +191,7 @@ public final class PacienteFormPage extends Page {
         if (current != null) {
             fullName.setText(current.fullName());
             document.setText(current.document());
+            country.setText(current.countryCode() == null || current.countryCode().isBlank() ? "57" : current.countryCode());
             phone.setText(Texts.formatPhone(current.phone()));
             process.select(current.processId());
             birthDate.setValue(current.birthDate());
@@ -246,7 +262,7 @@ public final class PacienteFormPage extends Page {
         }
         birthDate.commitText();
         PatientInput in = new PatientInput(fullName.getText(), document.getText(), phone.getText(),
-                process.selected(), birthDate.getValue());
+                process.selected(), birthDate.getValue(), country.getText());
         try {
             Patient saved = current == null ? s().patients().create(in) : s().patients().update(current.id(), in);
             shell().toast(current == null ? saved.fullName() + " quedó registrado." : "Cambios guardados.");
@@ -259,7 +275,7 @@ public final class PacienteFormPage extends Page {
             Map<String, String> e = ex.fieldErrors();
             fName.error(e.get("fullName"));
             fDoc.error(e.get("document"));
-            fPhone.error(e.get("phone"));
+            fPhone.error(e.get("countryCode") != null ? e.get("countryCode") : e.get("phone"));
             fBirth.error(e.get("birthDate"));
             fProcess.error(e.get("processId"));
             shell().error("Revisa los campos marcados.");
@@ -271,7 +287,8 @@ public final class PacienteFormPage extends Page {
 
     private void focusFirstError(Map<String, String> e) {
         Node target = e.containsKey("fullName") ? fullName
-                : e.containsKey("document") ? document : e.containsKey("phone") ? phone
+                : e.containsKey("document") ? document
+                : e.containsKey("countryCode") ? country : e.containsKey("phone") ? phone
                 : e.containsKey("birthDate") ? birthDate : process;
         target.requestFocus();
     }

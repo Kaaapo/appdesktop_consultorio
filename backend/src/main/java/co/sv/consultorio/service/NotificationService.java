@@ -55,14 +55,26 @@ public class NotificationService {
      * El protocolo {@code whatsapp://} de Windows estropea el texto; el mensaje se pega después, en Unicode.
      */
     public URI whatsAppDesktopUri(String phone) {
-        String digits = Texts.normalizePhone(phone);
-        return URI.create("whatsapp://send?phone=" + COUNTRY_CODE + digits);
+        return whatsAppDesktopUri(COUNTRY_CODE, phone);
+    }
+
+    /** Abre el chat con el indicativo guardado y el teléfono local. */
+    public URI whatsAppDesktopUri(String countryCode, String phone) {
+        return URI.create("whatsapp://send?phone=" + international(countryCode, phone));
     }
 
     public URI whatsAppUri(String phone, String text) {
-        String digits = Texts.normalizePhone(phone);
+        return whatsAppUri(COUNTRY_CODE, phone, text);
+    }
+
+    public URI whatsAppUri(String countryCode, String phone, String text) {
         String encoded = URLEncoder.encode(text == null ? "" : text, StandardCharsets.UTF_8).replace("+", "%20");
-        return URI.create("https://wa.me/" + COUNTRY_CODE + digits + "?text=" + encoded);
+        return URI.create("https://wa.me/" + international(countryCode, phone) + "?text=" + encoded);
+    }
+
+    private static String international(String countryCode, String phone) {
+        String cc = Texts.countryCode(countryCode);
+        return cc + Texts.localPhone(phone, cc);
     }
 
     /**

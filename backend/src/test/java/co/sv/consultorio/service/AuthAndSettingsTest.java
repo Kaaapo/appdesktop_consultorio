@@ -70,12 +70,12 @@ class AuthAndSettingsTest {
     void fileDatabaseMigratesAndBacksUp() throws Exception {
         Path file = tmp.resolve("consultorio.db");
         try (Database db = Database.openFile(file)) {
-            assertEquals(2, db.userVersion());
+            assertEquals(4, db.userVersion());
             db.dailyBackup(TestEnv.TODAY, 3);
         }
         assertTrue(Files.exists(tmp.resolve("backups").resolve("consultorio-2026-10-13.db")));
         try (Database db = Database.openFile(file)) {
-            assertEquals(2, db.userVersion());
+            assertEquals(4, db.userVersion());
         }
     }
 }

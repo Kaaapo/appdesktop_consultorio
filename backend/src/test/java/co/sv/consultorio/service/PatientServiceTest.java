@@ -46,6 +46,20 @@ class PatientServiceTest {
         Patient p = patients.create(new PatientInput("Valeria Acosta", "1020553198", "0057 321-555-0187",
                 b.id(), TestEnv.TODAY.minusYears(28)));
         assertEquals("3215550187", p.phone());
+        assertEquals("57", p.countryCode());
+    }
+
+    @Test
+    void otherCountryKeepsItsOwnLength() {
+        Process b = env.process("Proceso B", 1);
+        Patient p = patients.create(new PatientInput("Ana Torres", "88001122", "20255501",
+                b.id(), TestEnv.TODAY.minusYears(30), "1"));
+        assertEquals("1", p.countryCode());
+        assertEquals("20255501", p.phone());
+        assertEquals("whatsapp://send?phone=120255501", env.s.notifications().whatsAppDesktopUri(p.countryCode(), p.phone()).toString());
+        ValidationException colombia = assertThrows(ValidationException.class, () -> patients.create(
+                new PatientInput("Otra", "88001123", "20255501", b.id(), TestEnv.TODAY.minusYears(30), "57")));
+        assertTrue(colombia.fieldErrors().get("phone").contains("10 dígitos"));
     }
 
     @Test

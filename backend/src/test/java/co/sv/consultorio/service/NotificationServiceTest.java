@@ -71,6 +71,8 @@ class NotificationServiceTest {
         assertFalse(emoji.toString().chars().anyMatch(c -> c > 127));
         URI app = notifications.whatsAppDesktopUri("310 555 0142");
         assertEquals("whatsapp://send?phone=573105550142", app.toString());
+        assertEquals("whatsapp://send?phone=12025550142",
+                notifications.whatsAppDesktopUri("1", "2025550142").toString());
         assertFalse(app.toString().contains("text="));
         assertFalse(app.toString().startsWith("http"));
     }

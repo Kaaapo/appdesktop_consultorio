@@ -95,7 +95,8 @@ public final class WhatsAppFlow {
                 return;
             }
             open.setDisable(true);
-            openDesktopChat(ctx, ctx.s().notifications().whatsAppDesktopUri(v.patient().phone()).toString(), text, ok -> {
+            openDesktopChat(ctx, ctx.s().notifications().whatsAppDesktopUri(
+                    v.patient().countryCode(), v.patient().phone()).toString(), text, ok -> {
                 if (ok) {
                     confirmSent(ctx, p, v, text, afterSent);
                 } else {

@@ -447,7 +447,7 @@ public final class PacientesPage extends Page {
 
     private GridPane row(PatientOverview o, LocalDate today) {
         Patient p = o.patient();
-        Label name = Ui.wrap(p.fullName(), "w600");
+        Label name = Ui.stayInside(Ui.wrap(p.fullName(), "w600"));
         name.setAlignment(Pos.CENTER_LEFT);
         Ui.tip(name, p.fullName());
         VBox who = new VBox(name);
@@ -469,7 +469,7 @@ public final class PacientesPage extends Page {
 
         Integer age = p.age(today);
         String procName = o.process() == null ? "—" : o.process().name();
-        Label proc = Ui.wrap(procName);
+        Label proc = Ui.stayInside(Ui.wrap(procName));
         if (o.process() != null) {
             Ui.tip(proc, procName);
         }

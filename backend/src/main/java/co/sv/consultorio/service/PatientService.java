@@ -67,7 +67,7 @@ public class PatientService {
 
     public Patient create(PatientInput in) {
         Patient p = validate(0, in, null);
-        Patient toSave = new Patient(0, p.fullName(), p.document(), p.phone(), p.processId(),
+        Patient toSave = new Patient(0, p.fullName(), p.document(), p.phone(), p.countryCode(), p.processId(),
                 p.birthDate(), time.now(), true);
         long id = patients.insert(toSave);
         return patients.findById(id);
@@ -79,7 +79,7 @@ public class PatientService {
             throw new BusinessException("El paciente ya no existe.");
         }
         Patient p = validate(id, in, current);
-        patients.update(new Patient(id, p.fullName(), p.document(), p.phone(), p.processId(),
+        patients.update(new Patient(id, p.fullName(), p.document(), p.phone(), p.countryCode(), p.processId(),
                 p.birthDate(), current.registeredAt(), current.active()));
         return patients.findById(id);
     }
@@ -97,10 +97,19 @@ public class PatientService {
      * Lanza {@link ValidationException} con los errores por campo.
      */
     Patient validate(long id, PatientInput in, Patient current) {
+        return validate(id, in, current, true);
+    }
+
+    /**
+     * @param requireProcess el alta y la edición manual lo exigen; la importación no,
+     *                       para poder asignarlo después.
+     */
+    Patient validate(long id, PatientInput in, Patient current, boolean requireProcess) {
         Map<String, String> errors = new LinkedHashMap<>();
         String name = Texts.cleanName(in.fullName());
         String doc = Texts.digitsOnly(in.document());
-        String phone = Texts.normalizePhone(in.phone());
+        String country = Texts.countryCode(in.countryCode());
+        String phone = Texts.localPhone(in.phone(), country);
 
         if (name.isEmpty()) {
             errors.put("fullName", "Escribe el nombre completo.");
@@ -116,12 +125,20 @@ public class PatientService {
                         + (dup.active() ? "." : " (inactivo)."));
             }
         }
+        if (country.length() > 4) {
+            errors.put("countryCode", "El indicativo debe tener entre 1 y 4 dígitos.");
+        }
         if (phone.isEmpty()) {
             errors.put("phone", "Escribe el teléfono.");
-        } else if (phone.length() != 10) {
-            errors.put("phone", "El teléfono debe tener 10 dígitos (celular).");
+        } else if ("57".equals(country) && phone.length() != 10) {
+            errors.put("phone", "En Colombia el teléfono debe tener 10 dígitos.");
+        } else if (!"57".equals(country) && (phone.length() < 6 || phone.length() > 15)) {
+            errors.put("phone", "El teléfono debe tener entre 6 y 15 dígitos.");
         }
-        if (in.processId() == null || processes.findById(in.processId()) == null) {
+        boolean missingProcess = in.processId() == null || processes.findById(in.processId()) == null;
+        if (requireProcess && missingProcess) {
+            errors.put("processId", "Elige el procedimiento.");
+        } else if (!requireProcess && in.processId() != null && processes.findById(in.processId()) == null) {
             errors.put("processId", "Elige el procedimiento.");
         }
         if (in.birthDate() == null) {
@@ -134,7 +151,7 @@ public class PatientService {
         if (!errors.isEmpty()) {
             throw new ValidationException(errors);
         }
-        return new Patient(id, name, doc, phone, in.processId(), in.birthDate(),
+        return new Patient(id, name, doc, phone, country, in.processId(), in.birthDate(),
                 current == null ? null : current.registeredAt(), current == null || current.active());
     }
 
@@ -183,7 +200,7 @@ public class PatientService {
                     return false;
                 }
             }
-            if (f.processId() != null && p.processId() != f.processId()) {
+            if (f.processId() != null && !f.processId().equals(p.processId())) {
                 return false;
             }
             if (f.cita() == PatientFilter.CitaFilter.WITH && !o.hasAppointment()) {
