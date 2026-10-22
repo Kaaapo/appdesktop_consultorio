@@ -43,9 +43,9 @@ public class AppointmentService {
     }
 
     /**
-     * Resultado de asignar o reprogramar. Guarda el estado anterior para poder deshacer.
+     * Resultado de asignar o reasignar. Guarda el estado anterior para poder deshacer.
      *
-     * @param previous cita antes de reprogramar (null si era una cita nueva)
+     * @param previous cita antes de reasignar (null si era una cita nueva)
      */
     public record AssignResult(Appointment saved, Appointment previous, Patient patientBefore) {
         public boolean rescheduled() {
@@ -89,15 +89,14 @@ public class AppointmentService {
     }
 
     /**
-     * Reprograma la próxima cita del paciente. Borra el aviso de WhatsApp para poder avisar de nuevo.
-     * Si no tiene una cita pendiente, crea una nueva.
+     * Crea una cita. No mueve las que el paciente ya tiene: para eso está {@link #reschedule}.
      */
     public AssignResult assign(long patientId, AppointmentType type, LocalDateTime startsAt) {
-        return save(patientId, type, startsAt, true, null);
+        return add(patientId, type, startsAt);
     }
 
     public AssignResult assign(long patientId, AppointmentType type, LocalDateTime startsAt, Long processId) {
-        return save(patientId, type, startsAt, true, processId);
+        return add(patientId, type, startsAt, processId);
     }
 
     public void cancel(long appointmentId) {
@@ -140,15 +139,14 @@ public class AppointmentService {
 
     /** Crea otra cita o control sin reemplazar las que ya tiene. */
     public AssignResult add(long patientId, AppointmentType type, LocalDateTime startsAt) {
-        return save(patientId, type, startsAt, false, null);
+        return save(patientId, type, startsAt, null);
     }
 
     public AssignResult add(long patientId, AppointmentType type, LocalDateTime startsAt, Long processId) {
-        return save(patientId, type, startsAt, false, processId);
+        return save(patientId, type, startsAt, processId);
     }
 
-    private AssignResult save(long patientId, AppointmentType type, LocalDateTime startsAt, boolean replaceCurrent,
-                              Long processId) {
+    private AssignResult save(long patientId, AppointmentType type, LocalDateTime startsAt, Long processId) {
         Objects.requireNonNull(type, "type");
         Objects.requireNonNull(startsAt, "startsAt");
         return db.inTransaction(() -> {
@@ -160,25 +158,12 @@ public class AppointmentService {
             if (startsAt.isBefore(now)) {
                 throw new BusinessException("Esa hora ya pasó. Elige una fecha y hora futuras.");
             }
-            Appointment current = replaceCurrent ? appointments.findCurrent(patientId, time.today()) : null;
-            if (current != null && current.startsAt().isBefore(now)) {
-                current = null;
-            }
-            if (appointments.slotTaken(startsAt, current == null ? 0 : current.id())) {
+            if (appointments.slotTaken(startsAt, 0)) {
                 throw new BusinessException("Esa hora queda a menos de hora y media de otra cita. Elige otra.");
             }
-            Long process = resolveProcess(patientId, processId != null ? processId
-                    : current == null ? null : current.processId());
-            Appointment saved;
-            if (current == null) {
-                long id = appointments.insert(patientId, startsAt, type, now, process);
-                saved = appointments.findById(id);
-            } else {
-                appointments.update(new Appointment(current.id(), patientId, startsAt, type, null, null,
-                        WaStatus.NONE, current.createdAt(), process), now);
-                saved = appointments.findById(current.id());
-            }
-            return new AssignResult(saved, current, p);
+            Long process = resolveProcess(patientId, processId);
+            long id = appointments.insert(patientId, startsAt, type, now, process);
+            return new AssignResult(appointments.findById(id), null, p);
         });
     }
 
@@ -202,7 +187,7 @@ public class AppointmentService {
         throw new BusinessException("Elige el procedimiento de la cita.");
     }
 
-    /** Deshace una asignación o reprogramación recién hecha. */
+    /** Deshace una asignación o reasignación recién hecha. */
     public void undo(AssignResult r) {
         db.inTransaction(() -> {
             if (r.previous() == null) {
@@ -218,7 +203,7 @@ public class AppointmentService {
     }
 
     /**
-     * Horas del día. Si se está reprogramando una cita, {@code excludeAppointmentId} no bloquea
+     * Horas del día. Si se está reasignando una cita, {@code excludeAppointmentId} no bloquea
      * las horas vecinas: solo deja desactivada la hora en la que ya está esa cita.
      */
     public List<Slot> daySlots(LocalDate date, long excludeAppointmentId) {

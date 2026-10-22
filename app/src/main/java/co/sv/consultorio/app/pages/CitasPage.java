@@ -229,7 +229,7 @@ public final class CitasPage extends Page {
         }
         if (sel != null && replaceId != null) {
             patientBlock.getChildren().add(Ui.wrap(
-                    "Al reprogramar, el aviso anterior deja de valer y podrás avisar de la nueva fecha.", "muted", "fs14"));
+                    "Al reasignar, el aviso anterior deja de valer y podrás avisar de la nueva fecha.", "muted", "fs14"));
         }
         renderPatients();
 
@@ -273,7 +273,7 @@ public final class CitasPage extends Page {
         VBox.setMargin(actions, new javafx.geometry.Insets(Ui.px(6), 0, 0, 0));
         refreshActions();
         if (last != null) {
-            Label t = Ui.wrap((last.rescheduled() ? "Cita reprogramada. " : "Cita asignada. ") + lastText, "fs15");
+            Label t = Ui.wrap((last.rescheduled() ? "Cita reasignada. " : "Cita asignada. ") + lastText, "fs15");
             Button undo = Ui.button("hbtn2", "Deshacer", Icons.UNDO);
             undo.getStyleClass().add("sm");
             undo.setOnAction(e -> undo());
@@ -324,7 +324,7 @@ public final class CitasPage extends Page {
             } else {
                 Ui.tip(b, sl.state() == AppointmentService.SlotState.PAST ? "Esa hora ya pasó"
                         : replaceId != null && sl.occupant() != null && sl.occupant().id() == replaceId
-                        ? "Es la hora actual de la cita que vas a reprogramar"
+                        ? "Es la hora actual de la cita que vas a reasignar"
                         : "Hay hora y media de diferencia con otra cita");
             }
             hoursPane.getChildren().add(b);
@@ -418,7 +418,7 @@ public final class CitasPage extends Page {
                     ? "Aún no hay pacientes. Regístralos en Pacientes."
                     : includeWithAppointment || !query.isBlank()
                     ? "Sin resultados. Prueba con otro nombre o documento."
-                    : "Todos los pacientes tienen cita. Activa “Incluir pacientes que ya tienen cita” para reprogramar.",
+                    : "Todos los pacientes tienen cita. Activa “Incluir pacientes que ya tienen cita” para asignar otra.",
                     "muted", "fs14"));
         }
         int more = matches.size() - (int) shown.stream().filter(matches::contains).count();
@@ -630,7 +630,7 @@ public final class CitasPage extends Page {
                     WhatsAppFlow.message(ctx, v, null);
                 }
             } else {
-                shell().toast((last.rescheduled() ? "Cita reprogramada: " : "Cita asignada: ") + lastText);
+                shell().toast((last.rescheduled() ? "Cita reasignada: " : "Cita asignada: ") + lastText);
             }
         } catch (BusinessException ex) {
             if (replaceId != null && s().appointments().get(replaceId) == null) {
@@ -647,7 +647,7 @@ public final class CitasPage extends Page {
         }
         try {
             s().appointments().undo(last);
-            shell().toast(last.rescheduled() ? "Se deshizo la reprogramación." : "Se deshizo la cita asignada.");
+            shell().toast(last.rescheduled() ? "Se deshizo la reasignación." : "Se deshizo la cita asignada.");
         } catch (BusinessException ex) {
             shell().error(ex.getMessage());
         }

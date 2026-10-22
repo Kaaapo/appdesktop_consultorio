@@ -615,8 +615,7 @@ public final class PacientesPage extends Page {
             m.item(Icons.EDIT, "Editar paciente", "", () -> shell().goPaciente(p.id()));
         } else {
             m.item(Icons.CALENDAR, "Ver citas", "main1", () -> PatientCitasDialog.show(ctx, p.id()));
-            m.item(Icons.CALENDAR_PLUS, o.hasAppointment() ? "Reprogramar cita" : "Asignar cita", "",
-                    () -> shell().goCitas(p.id()));
+            m.item(Icons.CALENDAR_PLUS, "Asignar cita", "", () -> shell().goCitas(p.id()));
             switch (o.waStatus()) {
                 case AVISADO -> {
                     m.item(Icons.CHECK, "Respondió: agendado", "main1", () -> markOutcome(o, true));

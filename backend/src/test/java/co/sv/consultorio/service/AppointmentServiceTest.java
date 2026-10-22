@@ -56,7 +56,7 @@ class AppointmentServiceTest {
         assertEquals(co.sv.consultorio.domain.WaStatus.AVISADO, appts.get(first.saved().id()).waStatus());
 
         LocalDateTime newDate = FRI_1030.plusDays(1).withHour(9).withMinute(0);
-        AppointmentService.AssignResult second = appts.assign(camila.id(), AppointmentType.CITA, newDate);
+        AppointmentService.AssignResult second = appts.reschedule(first.saved().id(), AppointmentType.CITA, newDate);
         assertTrue(second.rescheduled());
         Appointment a = appts.get(first.saved().id());
         assertEquals(newDate, a.startsAt());
@@ -71,7 +71,7 @@ class AppointmentServiceTest {
     void undoRestoresPreviousAppointmentAndNotification() {
         AppointmentService.AssignResult first = appts.assign(camila.id(), AppointmentType.CITA, FRI_1030);
         env.s.notifications().markNotified(first.saved().id(), "Hola Camila");
-        AppointmentService.AssignResult moved = appts.assign(camila.id(), AppointmentType.CONTROL, FRI_1030.plusDays(3));
+        AppointmentService.AssignResult moved = appts.reschedule(first.saved().id(), AppointmentType.CONTROL, FRI_1030.plusDays(3));
         appts.undo(moved);
         Appointment a = appts.get(first.saved().id());
         assertEquals(FRI_1030, a.startsAt());

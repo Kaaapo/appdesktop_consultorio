@@ -100,7 +100,7 @@ class NotificationServiceTest {
         Appointment a = env.s.appointments().assign(p.id(), AppointmentType.CITA,
                 LocalDateTime.of(2026, 10, 15, 8, 0)).saved();
         notifications.markNotified(a.id(), "Hola Laura");
-        env.s.appointments().assign(p.id(), AppointmentType.CITA, LocalDateTime.of(2026, 10, 20, 9, 0));
+        env.s.appointments().reschedule(a.id(), AppointmentType.CITA, LocalDateTime.of(2026, 10, 20, 9, 0));
         Appointment again = notifications.markNotified(a.id(), "Nueva fecha");
         assertEquals(co.sv.consultorio.domain.WaStatus.AVISADO, again.waStatus());
         assertEquals("Nueva fecha", again.notifiedText());
