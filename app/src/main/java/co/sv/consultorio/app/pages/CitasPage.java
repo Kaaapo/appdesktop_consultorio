@@ -219,7 +219,7 @@ public final class CitasPage extends Page {
                 use.setMinWidth(javafx.scene.layout.Region.USE_PREF_SIZE);
                 use.setWrapText(true);
                 use.setOnAction(e -> selectDay(suggested));
-                Label note = Ui.wrap("Siguiente cita sugerida por " + chosen.name()
+                Label note = Ui.oneLine("Siguiente cita sugerida por " + chosen.name()
                         + " (cada " + chosen.monthsLabel() + ").", "fs14");
                 note.setMinWidth(0);
                 VBox hint = new VBox(Ui.px(4), note, use);
@@ -435,9 +435,8 @@ public final class CitasPage extends Page {
         String sub = "CC " + o.patient().document() + proc + " · "
                 + (o.citaCount() == 1 ? "1 cita" : o.citaCount() + " citas")
                 + (o.hasAppointment() ? "" : " · " + o.nextStep(today).note(o.nextCitaNumber()));
-        Label nm = Ui.stayInside(Ui.wrap(o.patient().fullName(), "nm"));
-        Ui.tip(nm, o.patient().fullName());
-        Label sb = Ui.stayInside(Ui.wrap(sub, "sub"));
+        Label nm = Ui.oneLine(o.patient().fullName(), "nm");
+        Label sb = Ui.oneLine(sub, "sub");
         VBox text = new VBox(Ui.px(1), nm, sb);
         text.setMinWidth(0);
         HBox.setHgrow(text, Priority.ALWAYS);

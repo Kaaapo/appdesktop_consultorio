@@ -67,6 +67,21 @@ public final class Ui {
         return l;
     }
 
+    /**
+     * Una sola línea. Si el texto no cabe, se corta con puntos suspensivos y el cursor muestra el texto completo.
+     * El ancho lo pone el padre: esta etiqueta no empuja a lo que tiene al lado.
+     */
+    public static Label oneLine(String text, String... styles) {
+        Label l = label(text, styles);
+        l.setWrapText(false);
+        l.setTextOverrun(javafx.scene.control.OverrunStyle.ELLIPSIS);
+        l.setMinWidth(0);
+        l.setPrefWidth(0);
+        l.setMaxWidth(Double.MAX_VALUE);
+        tip(l, text == null ? "" : text);
+        return l;
+    }
+
     /** "9:00 a. m." no se reparte entre dos renglones. */
     public static String keepTimes(String text) {
         return text == null ? null : text.replace(" a. m.", "\u00A0a.\u00A0m.").replace(" p. m.", "\u00A0p.\u00A0m.");

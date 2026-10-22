@@ -137,6 +137,12 @@ public final class PacienteFormPage extends Page {
         for (Process p : s().processes().list()) {
             CheckBox box = new CheckBox(p.name() + " · " + p.monthsLabel());
             box.setUserData(p.id());
+            box.setWrapText(false);
+            box.setTextOverrun(javafx.scene.control.OverrunStyle.ELLIPSIS);
+            box.setMinWidth(0);
+            box.setPrefWidth(Ui.px(420));
+            box.setMaxWidth(Ui.px(420));
+            Ui.tip(box, p.name());
             box.setSelected(marked.contains(p.id()));
             box.getStyleClass().add("proc-check");
             box.selectedProperty().addListener((o, a, b) -> updateHero());

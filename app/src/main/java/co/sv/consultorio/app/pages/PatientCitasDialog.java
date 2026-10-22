@@ -83,7 +83,7 @@ public final class PatientCitasDialog {
             String title = (v.appointment().type() == AppointmentType.CITA
                     ? "Cita " + v.citaNumber()
                     : "Control") + proc;
-            Label name = Ui.stayInside(Ui.wrap(title + " · " + Fmt.appointmentLong(v.appointment().startsAt()), "w600"));
+            Label name = Ui.oneLine(title + " · " + Fmt.appointmentLong(v.appointment().startsAt()), "w600");
             name.setMinWidth(0);
             VBox text = new VBox(Ui.px(2), name);
             if (past) {

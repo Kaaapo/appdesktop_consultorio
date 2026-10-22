@@ -35,7 +35,7 @@ public final class ImportReviewDialog {
         VBox rows = new VBox();
         rows.getChildren().add(TABLE.header("Fila", "Paciente", "Documento", "Procedimiento", "Estado"));
         for (ImportService.ImportRow r : preview.rows()) {
-            Label name = Ui.wrap(r.fullName().isBlank() ? "(sin nombre)" : r.fullName(), "w600");
+            Label name = Ui.oneLine(r.fullName().isBlank() ? "(sin nombre)" : r.fullName(), "w600");
             Node state;
             if (r.valid()) {
                 state = Chip.conCita("Lista");
@@ -49,7 +49,7 @@ public final class ImportReviewDialog {
             }
             GridPane g = TABLE.row(Ui.label(String.valueOf(r.rowNumber()), "muted"), name,
                     Ui.label(Texts.isBlank(r.input().document()) ? "—" : r.input().document(), "ink2"),
-                    Ui.wrap(r.processName().isBlank() ? "—" : r.processName()), state);
+                    Ui.oneLine(r.processName().isBlank() ? "—" : r.processName()), state);
             for (Node c : g.getChildren()) {
                 GridPane.setValignment(c, VPos.TOP);
             }

@@ -28,9 +28,15 @@ public class Pop {
         }
         Label t = Ui.h2(title);
         t.setStyle("-fx-font-size: " + Ui.px(titleSize) + "px;");
+        t.setWrapText(false);
+        t.setTextOverrun(javafx.scene.control.OverrunStyle.ELLIPSIS);
+        t.setMinWidth(0);
+        t.setPrefWidth(0);
+        t.setMaxWidth(Double.MAX_VALUE);
+        Ui.tip(t, title);
         head.getChildren().add(t);
-        if (subtitle != null) {
-            Label sub = Ui.wrap(subtitle, "muted", "fs15");
+        if (subtitle != null && !subtitle.isBlank()) {
+            Label sub = Ui.oneLine(subtitle, "muted", "fs15");
             head.getChildren().add(sub);
         }
         Button close = Ui.ghost(Icons.CLOSE, "Cerrar", 20);

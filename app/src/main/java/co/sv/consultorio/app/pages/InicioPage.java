@@ -206,10 +206,8 @@ public final class InicioPage extends Page {
     }
 
     static VBox nameBlock(String name, String sub) {
-        Label n = Ui.stayInside(Ui.wrap(name == null ? "" : name, "w600"));
-        Ui.tip(n, name == null ? "" : name);
-        Label s = Ui.stayInside(Ui.wrap(sub, "muted", "fs14"));
-        Ui.tip(s, sub == null ? "" : sub);
+        Label n = Ui.oneLine(name == null ? "" : name, "w600");
+        Label s = Ui.oneLine(sub == null ? "" : sub, "muted", "fs14");
         VBox b = new VBox(n, s);
         b.setMinWidth(0);
         b.setPrefWidth(0);

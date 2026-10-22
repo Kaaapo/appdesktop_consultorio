@@ -447,9 +447,7 @@ public final class PacientesPage extends Page {
 
     private GridPane row(PatientOverview o, LocalDate today) {
         Patient p = o.patient();
-        Label name = Ui.stayInside(Ui.wrap(p.fullName(), "w600"));
-        name.setAlignment(Pos.CENTER_LEFT);
-        Ui.tip(name, p.fullName());
+        Label name = Ui.oneLine(p.fullName(), "w600");
         VBox who = new VBox(name);
         who.setAlignment(Pos.CENTER_LEFT);
         who.setMinWidth(0);
@@ -469,10 +467,7 @@ public final class PacientesPage extends Page {
 
         Integer age = p.age(today);
         String procName = o.procedureNames().isBlank() ? "—" : o.procedureNames();
-        Label proc = Ui.stayInside(Ui.wrap(procName));
-        if (!o.procedures().isEmpty()) {
-            Ui.tip(proc, procName);
-        }
+        Label proc = Ui.oneLine(procName);
         String phone = Texts.formatPhone(p.phone());
         Label phoneLabel = Ui.wrap(phone, "ink2");
         Ui.tip(phoneLabel, phone);

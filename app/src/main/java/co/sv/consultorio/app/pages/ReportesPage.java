@@ -210,13 +210,14 @@ public final class ReportesPage extends Page {
         VBox head = new VBox(Ui.px(6), Ui.eyebrow("Vista previa"), title, Ui.label(s().reports().describe(r), "muted", "fs14"));
         VBox bars = new VBox(Ui.px(12));
         counts.forEach((name, n) -> {
-            Label l = Ui.stayInside(Ui.wrap(name, "fs15"));
-            l.setMinWidth(Ui.px(180));
-            l.setPrefWidth(Region.USE_COMPUTED_SIZE);
-            l.setMaxWidth(Ui.px(480));
+            Label l = Ui.oneLine(name, "fs15");
+            l.setPrefWidth(Ui.px(150));
+            l.setMaxWidth(Ui.px(150));
+            HBox.setHgrow(l, Priority.NEVER);
             Region bar = Ui.cls(new Region(), "bar");
             StackPane track = new StackPane(bar);
             track.getStyleClass().add("bar-track");
+            track.setMinWidth(Ui.px(48));
             StackPane.setAlignment(bar, Pos.CENTER_LEFT);
             double frac = max == 0 ? 0 : (double) n / max;
             bar.maxWidthProperty().bind(track.widthProperty().multiply(frac));
