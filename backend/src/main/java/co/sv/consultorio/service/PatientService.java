@@ -70,6 +70,7 @@ public class PatientService {
         Patient toSave = new Patient(0, p.fullName(), p.document(), p.phone(), p.countryCode(), p.processId(),
                 p.birthDate(), time.now(), true);
         long id = patients.insert(toSave);
+        patients.replaceProcedures(id, in.procedureIds());
         return patients.findById(id);
     }
 
@@ -81,6 +82,7 @@ public class PatientService {
         Patient p = validate(id, in, current);
         patients.update(new Patient(id, p.fullName(), p.document(), p.phone(), p.countryCode(), p.processId(),
                 p.birthDate(), current.registeredAt(), current.active()));
+        patients.replaceProcedures(id, in.procedureIds());
         return patients.findById(id);
     }
 
@@ -135,10 +137,12 @@ public class PatientService {
         } else if (!"57".equals(country) && (phone.length() < 6 || phone.length() > 15)) {
             errors.put("phone", "El teléfono debe tener entre 6 y 15 dígitos.");
         }
-        boolean missingProcess = in.processId() == null || processes.findById(in.processId()) == null;
-        if (requireProcess && missingProcess) {
+        List<Long> procedureIds = in.procedureIds();
+        boolean missingProcess = procedureIds.isEmpty();
+        boolean unknownProcess = procedureIds.stream().anyMatch(processId -> processes.findById(processId) == null);
+        if (requireProcess && (missingProcess || unknownProcess)) {
             errors.put("processId", "Elige el procedimiento.");
-        } else if (!requireProcess && in.processId() != null && processes.findById(in.processId()) == null) {
+        } else if (!requireProcess && unknownProcess) {
             errors.put("processId", "Elige el procedimiento.");
         }
         if (in.birthDate() == null) {
@@ -151,7 +155,8 @@ public class PatientService {
         if (!errors.isEmpty()) {
             throw new ValidationException(errors);
         }
-        return new Patient(id, name, doc, phone, country, in.processId(), in.birthDate(),
+        Long firstProcess = procedureIds.isEmpty() ? null : procedureIds.get(0);
+        return new Patient(id, name, doc, phone, country, firstProcess, in.birthDate(),
                 current == null ? null : current.registeredAt(), current == null || current.active());
     }
 
@@ -168,10 +173,21 @@ public class PatientService {
         Map<Long, Integer> counts = appointments.citaCountByPatient();
         Map<Long, Integer> controls = appointments.controlCountByPatient();
         Map<Long, LocalDate> last = appointments.lastCitaByPatient();
+        Map<Long, List<Long>> links = patients.procedureIds();
         List<PatientOverview> out = new ArrayList<>();
         for (Patient p : patients.findAll()) {
-            out.add(new PatientOverview(p, procs.get(p.processId()), current.get(p.id()),
-                    counts.getOrDefault(p.id(), 0), controls.getOrDefault(p.id(), 0), last.get(p.id())));
+            List<Process> linked = new ArrayList<>();
+            for (Long processId : links.getOrDefault(p.id(), List.of())) {
+                Process proc = procs.get(processId);
+                if (proc != null) {
+                    linked.add(proc);
+                }
+            }
+            if (linked.isEmpty() && p.processId() != null && procs.get(p.processId()) != null) {
+                linked.add(procs.get(p.processId()));
+            }
+            out.add(new PatientOverview(p, linked.isEmpty() ? null : linked.get(0), current.get(p.id()),
+                    counts.getOrDefault(p.id(), 0), controls.getOrDefault(p.id(), 0), last.get(p.id()), linked));
         }
         return out;
     }
@@ -200,7 +216,7 @@ public class PatientService {
                     return false;
                 }
             }
-            if (f.processId() != null && !f.processId().equals(p.processId())) {
+            if (f.processId() != null && !o.hasProcedure(f.processId())) {
                 return false;
             }
             if (f.cita() == PatientFilter.CitaFilter.WITH && !o.hasAppointment()) {

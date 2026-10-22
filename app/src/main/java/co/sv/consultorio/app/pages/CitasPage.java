@@ -17,6 +17,7 @@ import co.sv.consultorio.domain.AppointmentView;
 import co.sv.consultorio.domain.BusinessException;
 import co.sv.consultorio.domain.NextStep;
 import co.sv.consultorio.domain.PatientOverview;
+import co.sv.consultorio.domain.Process;
 import co.sv.consultorio.service.AppointmentService;
 import co.sv.consultorio.service.PatientFilter;
 import co.sv.consultorio.service.PatientService;
@@ -65,6 +66,7 @@ public final class CitasPage extends Page {
     private String lastText;
 
     private Long replaceId;
+    private Long procedureId;
 
     private List<PatientOverview> overviews = List.of();
     private final VBox patientList = new VBox(Ui.px(6));
@@ -208,15 +210,17 @@ public final class CitasPage extends Page {
         });
         VBox patientBlock = new VBox(Ui.px(6), pl, searchBox, patientList, withAppt, selectedBox(sel, today));
         VBox.setMargin(patientList, new javafx.geometry.Insets(Ui.px(4), 0, 0, 0));
-        if (sel != null && sel.process() != null) {
-            LocalDate suggested = s().appointments().suggestedDay(sel, today);
+        syncProcedure(sel);
+        Process chosen = procedureId == null ? null : s().processes().get(procedureId);
+        if (sel != null && chosen != null) {
+            LocalDate suggested = s().appointments().suggestedDay(sel, chosen, today);
             if (suggested != null) {
                 Button use = Ui.link("Usar el " + Fmt.longDate(suggested));
                 use.setMinWidth(javafx.scene.layout.Region.USE_PREF_SIZE);
                 use.setWrapText(true);
                 use.setOnAction(e -> selectDay(suggested));
-                Label note = Ui.wrap("Siguiente cita sugerida por " + sel.process().name()
-                        + " (cada " + sel.process().monthsLabel() + ").", "fs14");
+                Label note = Ui.wrap("Siguiente cita sugerida por " + chosen.name()
+                        + " (cada " + chosen.monthsLabel() + ").", "fs14");
                 note.setMinWidth(0);
                 VBox hint = new VBox(Ui.px(4), note, use);
                 hint.setFillWidth(true);
@@ -247,6 +251,9 @@ public final class CitasPage extends Page {
         g.getColumnConstraints().addAll(c, c);
         g.add(new Field("Tipo de cita", typeBox), 0, 0);
         g.add(new Field("Fecha", dateField), 1, 0);
+        if (sel != null) {
+            g.add(procedureField(sel), 0, 1, 2, 1);
+        }
 
         hoursTitle = Ui.label("", "lbl");
         hoursPane = flow();
@@ -361,11 +368,13 @@ public final class CitasPage extends Page {
             return;
         }
         PatientOverview sel = selected();
-        boolean ready = sel != null && slot != null;
+        boolean ready = sel != null && procedureId != null && slot != null;
         sendBtn.setDisable(!ready);
         onlyBtn.setDisable(!ready);
         needHint.setText(ready ? "" : sel == null
                 ? "Elige un paciente para asignarle la cita."
+                : procedureId == null
+                ? "Elige el procedimiento de la cita."
                 : "Elige una hora libre para asignar la cita.");
         needHint.setVisible(!ready);
         needHint.setManaged(!ready);
@@ -422,7 +431,7 @@ public final class CitasPage extends Page {
     }
 
     private Node patientCard(PatientOverview o, LocalDate today) {
-        String proc = o.process() == null ? "" : " · " + o.process().name();
+        String proc = o.procedureNames().isBlank() ? "" : " · " + o.procedureNames();
         String sub = "CC " + o.patient().document() + proc + " · "
                 + (o.citaCount() == 1 ? "1 cita" : o.citaCount() + " citas")
                 + (o.hasAppointment() ? "" : " · " + o.nextStep(today).note(o.nextCitaNumber()));
@@ -558,6 +567,48 @@ public final class CitasPage extends Page {
         });
     }
 
+    private void syncProcedure(PatientOverview sel) {
+        List<Process> options = procedureOptions(sel);
+        boolean valid = procedureId != null && options.stream().anyMatch(p -> p.id() == procedureId);
+        if (valid) {
+            return;
+        }
+        if (replaceId != null) {
+            Appointment current = s().appointments().get(replaceId);
+            if (current != null && current.processId() != null
+                    && options.stream().anyMatch(p -> p.id() == current.processId())) {
+                procedureId = current.processId();
+                return;
+            }
+        }
+        procedureId = options.size() == 1 ? options.get(0).id() : null;
+    }
+
+    private List<Process> procedureOptions(PatientOverview sel) {
+        if (sel != null && !sel.procedures().isEmpty()) {
+            return sel.procedures();
+        }
+        return s().processes().list();
+    }
+
+    private Field procedureField(PatientOverview sel) {
+        List<Process> options = procedureOptions(sel);
+        List<Choice.Opt<Long>> opts = new ArrayList<>();
+        for (Process p : options) {
+            opts.add(Choice.opt(p.name() + " · " + p.monthsLabel(), p.id()));
+        }
+        Choice<Long> box = new Choice<>(opts, procedureId, v -> {
+            procedureId = v;
+            renderForm();
+        });
+        box.getStyleClass().add("tall");
+        box.setPromptText(opts.isEmpty() ? "Primero crea un procedimiento" : "Elige el procedimiento");
+        String hint = sel.procedures().isEmpty()
+                ? "Este paciente no tiene procedimientos. El que elijas se le asigna."
+                : "La cita y el mensaje de WhatsApp quedan de este procedimiento.";
+        return new Field("Procedimiento", box).hint(hint);
+    }
+
     private void assign(boolean thenWhatsApp) {
         PatientOverview sel = selected();
         if (sel == null || slot == null) {
@@ -566,8 +617,8 @@ public final class CitasPage extends Page {
         try {
             LocalDateTime when = day.atTime(slot);
             last = replaceId == null
-                    ? s().appointments().add(sel.patient().id(), type, when)
-                    : s().appointments().reschedule(replaceId, type, when);
+                    ? s().appointments().add(sel.patient().id(), type, when, procedureId)
+                    : s().appointments().reschedule(replaceId, type, when, procedureId);
             replaceId = null;
             lastText = sel.patient().fullName() + " · " + Fmt.longDateDow(day) + ", " + Fmt.time12(slot);
             slot = null;

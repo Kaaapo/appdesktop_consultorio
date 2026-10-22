@@ -2,7 +2,6 @@ package co.sv.consultorio.app.pages;
 
 import co.sv.consultorio.app.AppContext;
 import co.sv.consultorio.app.Shell;
-import co.sv.consultorio.app.ui.Choice;
 import co.sv.consultorio.app.ui.DateField;
 import co.sv.consultorio.app.ui.Field;
 import co.sv.consultorio.app.ui.FlexRow;
@@ -19,6 +18,7 @@ import javafx.application.Platform;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextFormatter;
@@ -42,7 +42,7 @@ public final class PacienteFormPage extends Page {
     private final TextField document = new TextField();
     private final TextField country = new TextField();
     private final TextField phone = new TextField();
-    private Choice<Long> process;
+    private final VBox procedures = new VBox(Ui.px(8));
     private final DateField birthDate = new DateField(null);
     private final Label age = Ui.label("", "hint");
 
@@ -78,8 +78,8 @@ public final class PacienteFormPage extends Page {
         VBox.setMargin(h1, new javafx.geometry.Insets(Ui.px(10), 0, Ui.px(8), 0));
         String leadText = edit
                 ? "Registrado el " + Fmt.longDateYear(current.registeredAt().toLocalDate())
-                + (current.active() ? "." : " · inactivo.") + " Todos los campos son obligatorios."
-                : "Todos los campos son obligatorios. Al guardarlo aparecerá de primero en la lista.";
+                + (current.active() ? "." : " · inactivo.") + " Puede marcar varios procedimientos."
+                : "Los campos son obligatorios. Puede marcar varios procedimientos; en la cita se elige cuál.";
         VBox left = new VBox(Ui.eyebrow("Pacientes"), h1, Ui.lead(leadText));
         Button cancel = Ui.btn2("Cancelar");
         cancel.setOnAction(e -> shell().go(Shell.Nav.PACIENTES));
@@ -131,19 +131,27 @@ public final class PacienteFormPage extends Page {
         birthDate.valueProperty().addListener((o, a, b) -> refreshAge());
         fBirth = new Field("Fecha de nacimiento", birthDate).below(age);
 
-        List<Choice.Opt<Long>> opts = new ArrayList<>();
+        procedures.getChildren().clear();
+        List<Long> marked = current == null ? List.of()
+                : s().patients().overview(current.id()).procedures().stream().map(Process::id).toList();
         for (Process p : s().processes().list()) {
-            opts.add(Choice.opt(p.name() + " · " + p.monthsLabel(), p.id()));
+            CheckBox box = new CheckBox(p.name() + " · " + p.monthsLabel());
+            box.setUserData(p.id());
+            box.setSelected(marked.contains(p.id()));
+            box.getStyleClass().add("proc-check");
+            box.selectedProperty().addListener((o, a, b) -> updateHero());
+            procedures.getChildren().add(box);
         }
-        process = new Choice<>(opts, null, v -> updateHero());
-        process.setPromptText(opts.isEmpty() ? "Primero crea un procedimiento" : "Elige el procedimiento");
+        if (procedures.getChildren().isEmpty()) {
+            procedures.getChildren().add(Ui.wrap("Primero crea un procedimiento.", "hint"));
+        }
         Button create = Ui.link("Crear procedimiento");
         create.getStyleClass().addAll("plain", "sm");
         create.setStyle("-fx-font-size: " + Ui.px(13) + "px; -fx-underline: true;");
         create.setOnAction(e -> shell().go(Shell.Nav.PROCESOS));
         HBox missing = new HBox(Ui.px(4), Ui.label("¿Falta uno?", "hint"), create);
         missing.setAlignment(Pos.CENTER_LEFT);
-        fProcess = new Field("Procedimiento", process).below(missing);
+        fProcess = new Field("Procedimientos", procedures).below(missing);
 
         GridPane g1 = grid();
         g1.add(fName, 0, 0, 2, 1);
@@ -193,7 +201,6 @@ public final class PacienteFormPage extends Page {
             document.setText(current.document());
             country.setText(current.countryCode() == null || current.countryCode().isBlank() ? "57" : current.countryCode());
             phone.setText(Texts.formatPhone(current.phone()));
-            process.select(current.processId());
             birthDate.setValue(current.birthDate());
         }
         refreshAge();
@@ -234,15 +241,23 @@ public final class PacienteFormPage extends Page {
 
     private void updateHero() {
         hero.getChildren().clear();
-        Process proc = process == null || process.selected() == null ? null : s().processes().get(process.selected());
+        List<Process> chosen = selectedProcedures();
         String name = Texts.isBlank(fullName.getText()) ? "{nombre}" : Texts.cleanName(fullName.getText());
         hero.getChildren().add(Ui.eyebrow("Cómo se cuentan las citas"));
-        if (proc == null) {
+        if (chosen.isEmpty()) {
             hero.getChildren().addAll(Ui.h2("Elige el procedimiento"),
-                    Ui.wrap("El administrador pone las citas. El programa cuenta cuántas lleva y avisa siempre, según los meses del procedimiento.",
+                    Ui.wrap("Puede marcar varios. Al asignar la cita se elige de cuál es, y el aviso usa el mensaje de ese procedimiento.",
                             "muted", "fs15"));
             return;
         }
+        if (chosen.size() > 1) {
+            hero.getChildren().add(Ui.h2(chosen.size() + " procedimientos"));
+            hero.getChildren().add(Ui.wrap(chosen.stream()
+                    .map(p -> p.name() + " · cada " + p.monthsLabel())
+                    .collect(java.util.stream.Collectors.joining("\n")), "muted", "fs15"));
+            return;
+        }
+        Process proc = chosen.get(0);
         hero.getChildren().add(Ui.h2("Cada " + proc.monthsLabel()));
         Label text = Ui.wrap("Después de cada cita, la siguiente se sugiere " + proc.monthsLabel()
                 + " después. Un control no suma a ese número. El aviso por WhatsApp sale solo, sin configurar nada.",
@@ -262,7 +277,7 @@ public final class PacienteFormPage extends Page {
         }
         birthDate.commitText();
         PatientInput in = new PatientInput(fullName.getText(), document.getText(), phone.getText(),
-                process.selected(), birthDate.getValue(), country.getText());
+                selectedProcedureIds(), birthDate.getValue(), country.getText());
         try {
             Patient saved = current == null ? s().patients().create(in) : s().patients().update(current.id(), in);
             shell().toast(current == null ? saved.fullName() + " quedó registrado." : "Cambios guardados.");
@@ -289,7 +304,28 @@ public final class PacienteFormPage extends Page {
         Node target = e.containsKey("fullName") ? fullName
                 : e.containsKey("document") ? document
                 : e.containsKey("countryCode") ? country : e.containsKey("phone") ? phone
-                : e.containsKey("birthDate") ? birthDate : process;
+                : e.containsKey("birthDate") ? birthDate : procedures;
         target.requestFocus();
+    }
+
+    private List<Long> selectedProcedureIds() {
+        List<Long> ids = new ArrayList<>();
+        for (Node n : procedures.getChildren()) {
+            if (n instanceof CheckBox box && box.isSelected() && box.getUserData() instanceof Long id) {
+                ids.add(id);
+            }
+        }
+        return ids;
+    }
+
+    private List<Process> selectedProcedures() {
+        List<Process> out = new ArrayList<>();
+        for (Long id : selectedProcedureIds()) {
+            Process p = s().processes().get(id);
+            if (p != null) {
+                out.add(p);
+            }
+        }
+        return out;
     }
 }

@@ -468,9 +468,9 @@ public final class PacientesPage extends Page {
         more.setOnAction(e -> openMenu(more, o));
 
         Integer age = p.age(today);
-        String procName = o.process() == null ? "—" : o.process().name();
+        String procName = o.procedureNames().isBlank() ? "—" : o.procedureNames();
         Label proc = Ui.stayInside(Ui.wrap(procName));
-        if (o.process() != null) {
+        if (!o.procedures().isEmpty()) {
             Ui.tip(proc, procName);
         }
         String phone = Texts.formatPhone(p.phone());

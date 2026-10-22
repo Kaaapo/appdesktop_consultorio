@@ -18,10 +18,10 @@ import java.util.stream.Collectors;
 
 public class SettingsService {
 
-    /** Lunes a viernes: 9:00 a 12:00 y 14:00 a 18:00, cada media hora. */
-    public static final List<LocalTime> WEEKDAY_SLOTS = hours(9, 0, 12, 0).and(hours(14, 0, 18, 0));
-    /** Sábados: 9:00 a 13:00, cada media hora. */
-    public static final List<LocalTime> SATURDAY_SLOTS = hours(9, 0, 13, 0).list();
+    /** Lunes a sábado: 7:00 a 19:00, cada media hora, sin descanso al mediodía. */
+    public static final List<LocalTime> WEEKDAY_SLOTS = hours(7, 0, 19, 0).list();
+    /** El sábado usa el mismo horario que el resto de la semana. */
+    public static final List<LocalTime> SATURDAY_SLOTS = WEEKDAY_SLOTS;
     public static final List<LocalTime> DEFAULT_SLOTS = WEEKDAY_SLOTS;
     public static final Set<DayOfWeek> DEFAULT_WORK_DAYS = EnumSet.range(DayOfWeek.MONDAY, DayOfWeek.SATURDAY);
     public static final int DEFAULT_REMINDER_DAYS = 7;
@@ -115,12 +115,6 @@ public class SettingsService {
                 out.add(t);
                 t = t.plusMinutes(30);
             }
-            return List.copyOf(out);
-        }
-
-        List<LocalTime> and(HalfHours other) {
-            List<LocalTime> out = new java.util.ArrayList<>(list());
-            out.addAll(other.list());
             return List.copyOf(out);
         }
     }

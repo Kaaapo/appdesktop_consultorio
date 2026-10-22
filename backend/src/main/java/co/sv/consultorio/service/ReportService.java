@@ -80,8 +80,10 @@ public class ReportService {
             }
         }
         for (PatientOverview o : rows) {
-            if (o.process() != null) {
-                out.merge(o.process().name(), 1, Integer::sum);
+            for (Process proc : o.procedures()) {
+                if (out.containsKey(proc.name())) {
+                    out.merge(proc.name(), 1, Integer::sum);
+                }
             }
         }
         return out;
@@ -141,7 +143,7 @@ public class ReportService {
                 setDate(row.createCell(2), p.birthDate(), date);
                 row.createCell(3).setCellValue(p.age(time.today()) == null ? "" : String.valueOf(p.age(time.today())));
                 row.createCell(4).setCellValue(Texts.formatPhone(p.phone()));
-                row.createCell(5).setCellValue(o.process() == null ? "" : o.process().name());
+                row.createCell(5).setCellValue(o.procedureNames());
                 List<AppointmentView> visits = history.getOrDefault(p.id(), List.of());
                 row.createCell(6).setCellValue(count(visits, AppointmentType.CITA));
                 row.createCell(7).setCellValue(count(visits, AppointmentType.CONTROL));
@@ -255,7 +257,7 @@ public class ReportService {
             addCell(table, name, line);
             addCell(table, new Phrase(p.age(today) == null ? "" : p.age(today) + " años", td), line);
             addCell(table, new Phrase(Texts.formatPhone(p.phone()), td), line);
-            addCell(table, new Phrase(o.process() == null ? "" : o.process().name(), td), line);
+            addCell(table, new Phrase(o.procedureNames(), td), line);
             addCell(table, new Phrase(String.valueOf(nCitas), td), line);
             addCell(table, new Phrase(String.valueOf(nControles), td), line);
             addCell(table, new Phrase(historyText(visits), td), line);
@@ -288,7 +290,8 @@ public class ReportService {
         }
         return list.stream().map(v -> {
             Appointment a = v.appointment();
-            return a.type().numbered(v.citaNumber()) + " · " + Fmt.appointmentLong(a.startsAt());
+            String proc = v.process() == null ? "" : v.process().name() + " · ";
+            return a.type().numbered(v.citaNumber()) + " · " + proc + Fmt.appointmentLong(a.startsAt());
         }).collect(Collectors.joining("\n"));
     }
 

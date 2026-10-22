@@ -93,7 +93,11 @@ public class AppointmentService {
      * Si no tiene una cita pendiente, crea una nueva.
      */
     public AssignResult assign(long patientId, AppointmentType type, LocalDateTime startsAt) {
-        return save(patientId, type, startsAt, true);
+        return save(patientId, type, startsAt, true, null);
+    }
+
+    public AssignResult assign(long patientId, AppointmentType type, LocalDateTime startsAt, Long processId) {
+        return save(patientId, type, startsAt, true, processId);
     }
 
     public void cancel(long appointmentId) {
@@ -105,6 +109,10 @@ public class AppointmentService {
 
     /** Mueve una cita concreta. Borra el aviso para poder avisar de la nueva fecha. */
     public AssignResult reschedule(long appointmentId, AppointmentType type, LocalDateTime startsAt) {
+        return reschedule(appointmentId, type, startsAt, null);
+    }
+
+    public AssignResult reschedule(long appointmentId, AppointmentType type, LocalDateTime startsAt, Long processId) {
         Objects.requireNonNull(type, "type");
         Objects.requireNonNull(startsAt, "startsAt");
         return db.inTransaction(() -> {
@@ -123,18 +131,24 @@ public class AppointmentService {
             if (appointments.slotTaken(startsAt, current.id())) {
                 throw new BusinessException("Esa hora queda a menos de hora y media de otra cita. Elige otra.");
             }
+            Long process = resolveProcess(current.patientId(), processId != null ? processId : current.processId());
             appointments.update(new Appointment(current.id(), current.patientId(), startsAt, type, null, null,
-                    WaStatus.NONE, current.createdAt()), now);
+                    WaStatus.NONE, current.createdAt(), process), now);
             return new AssignResult(appointments.findById(current.id()), current, p);
         });
     }
 
     /** Crea otra cita o control sin reemplazar las que ya tiene. */
     public AssignResult add(long patientId, AppointmentType type, LocalDateTime startsAt) {
-        return save(patientId, type, startsAt, false);
+        return save(patientId, type, startsAt, false, null);
     }
 
-    private AssignResult save(long patientId, AppointmentType type, LocalDateTime startsAt, boolean replaceCurrent) {
+    public AssignResult add(long patientId, AppointmentType type, LocalDateTime startsAt, Long processId) {
+        return save(patientId, type, startsAt, false, processId);
+    }
+
+    private AssignResult save(long patientId, AppointmentType type, LocalDateTime startsAt, boolean replaceCurrent,
+                              Long processId) {
         Objects.requireNonNull(type, "type");
         Objects.requireNonNull(startsAt, "startsAt");
         return db.inTransaction(() -> {
@@ -153,17 +167,39 @@ public class AppointmentService {
             if (appointments.slotTaken(startsAt, current == null ? 0 : current.id())) {
                 throw new BusinessException("Esa hora queda a menos de hora y media de otra cita. Elige otra.");
             }
+            Long process = resolveProcess(patientId, processId != null ? processId
+                    : current == null ? null : current.processId());
             Appointment saved;
             if (current == null) {
-                long id = appointments.insert(patientId, startsAt, type, now);
+                long id = appointments.insert(patientId, startsAt, type, now, process);
                 saved = appointments.findById(id);
             } else {
                 appointments.update(new Appointment(current.id(), patientId, startsAt, type, null, null,
-                        WaStatus.NONE, current.createdAt()), now);
+                        WaStatus.NONE, current.createdAt(), process), now);
                 saved = appointments.findById(current.id());
             }
             return new AssignResult(saved, current, p);
         });
+    }
+
+    /** Usa el procedimiento elegido, o el único del paciente si no eligieron. */
+    private Long resolveProcess(long patientId, Long requested) {
+        if (requested != null) {
+            if (processes.findById(requested) == null) {
+                throw new BusinessException("El procedimiento ya no existe.");
+            }
+            patients.linkProcedure(patientId, requested);
+            return requested;
+        }
+        List<Long> ids = patients.procedureIds(patientId);
+        if (ids.size() == 1) {
+            return ids.get(0);
+        }
+        Patient patient = patients.findById(patientId);
+        if (ids.isEmpty() && patient != null && patient.processId() != null) {
+            return patient.processId();
+        }
+        throw new BusinessException("Elige el procedimiento de la cita.");
     }
 
     /** Deshace una asignación o reprogramación recién hecha. */
@@ -266,13 +302,28 @@ public class AppointmentService {
         return out;
     }
 
-    /** Primera fecha libre para la siguiente cita, según los meses del procedimiento. */
+    /** Primera fecha libre para la siguiente cita, según los meses del procedimiento principal. */
     public LocalDate suggestedDay(PatientOverview overview, LocalDate today) {
-        if (overview == null || overview.process() == null) {
+        return suggestedDay(overview, overview == null ? null : overview.process(), today);
+    }
+
+    /** Igual, pero con el procedimiento elegido en la cita. */
+    public LocalDate suggestedDay(PatientOverview overview, Process process, LocalDate today) {
+        if (overview == null || process == null || today == null) {
             return null;
         }
-        LocalDate base = overview.lastCitaDate() == null ? today
-                : overview.lastCitaDate().plusMonths(overview.process().monthsToSecond());
+        LocalDate last = null;
+        for (AppointmentView visit : forPatient(overview.patient().id())) {
+            if (visit.appointment().type() != AppointmentType.CITA || visit.process() == null
+                    || visit.process().id() != process.id()) {
+                continue;
+            }
+            LocalDate day = visit.appointment().startsAt().toLocalDate();
+            if (last == null || day.isAfter(last)) {
+                last = day;
+            }
+        }
+        LocalDate base = last == null ? today : last.plusMonths(process.monthsToSecond());
         if (base.isBefore(today)) {
             base = today;
         }
@@ -305,7 +356,8 @@ public class AppointmentService {
         List<AppointmentView> out = new ArrayList<>(list.size());
         for (Appointment a : list) {
             Patient p = pats.get(a.patientId());
-            out.add(new AppointmentView(a, p, p == null ? null : procs.get(p.processId()),
+            Long processId = a.processId() != null ? a.processId() : p == null ? null : p.processId();
+            out.add(new AppointmentView(a, p, processId == null ? null : procs.get(processId),
                     numbers.getOrDefault(a.id(), 0)));
         }
         return out;

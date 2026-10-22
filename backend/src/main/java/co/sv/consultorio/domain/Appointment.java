@@ -14,7 +14,8 @@ public record Appointment(
         LocalDateTime notifiedAt,
         String notifiedText,
         WaStatus waStatus,
-        LocalDateTime createdAt) {
+        LocalDateTime createdAt,
+        Long processId) {
 
     public Appointment {
         if (waStatus == null) {

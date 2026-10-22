@@ -472,6 +472,10 @@
 .hero-sep { -fx-border-color: -c-herofb transparent transparent transparent; -fx-border-width: 1px 0 0 0; -fx-padding: 16px 0 0 0; }
 .bar-track { -fx-background-color: -c-soft; -fx-background-radius: 999px; -fx-min-height: 12px; -fx-pref-height: 12px; -fx-max-height: 12px; }
 .bar { -fx-background-color: -c-btn; -fx-background-radius: 999px; -fx-min-height: 12px; -fx-pref-height: 12px; -fx-max-height: 12px; }
+.proc-check { -fx-text-fill: -c-ink; -fx-font-size: 15px; }
+.proc-check .box { -fx-background-color: -c-fbg; -fx-border-color: -c-line; -fx-border-radius: 4px; -fx-background-radius: 4px; }
+.proc-check:selected .box { -fx-background-color: -c-btn; -fx-border-color: -c-btn; }
+.proc-check:selected .mark { -fx-background-color: -c-btnink; }
 .drop { -fx-border-color: -c-fb; -fx-border-style: segments(6px, 4px); -fx-border-width: 1.5px; -fx-border-radius: 14px; -fx-background-radius: 14px; -fx-padding: 26px; -fx-spacing: 8px; -fx-alignment: center; }
 .drop.over { -fx-background-color: -c-hover; -fx-border-color: -c-ink; }
 .drop .icon { -fx-stroke: -c-ink2; }

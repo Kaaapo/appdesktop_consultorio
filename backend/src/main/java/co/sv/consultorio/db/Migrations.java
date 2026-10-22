@@ -122,6 +122,24 @@ final class Migrations {
                     "CREATE INDEX ix_patient_registered ON patient(registered_at DESC)",
                     "CREATE INDEX ix_patient_process ON patient(process_id)",
                     "PRAGMA foreign_keys = ON"
+            },
+            // v5: un paciente puede tener varios procedimientos; la cita guarda cuál es
+            new String[]{
+                    """
+                    CREATE TABLE patient_process (
+                        patient_id INTEGER NOT NULL REFERENCES patient(id),
+                        process_id INTEGER NOT NULL REFERENCES process(id),
+                        PRIMARY KEY (patient_id, process_id)
+                    )""",
+                    """
+                    INSERT INTO patient_process (patient_id, process_id)
+                    SELECT id, process_id FROM patient WHERE process_id IS NOT NULL""",
+                    "ALTER TABLE appointment ADD COLUMN process_id INTEGER REFERENCES process(id)",
+                    """
+                    UPDATE appointment SET process_id = (
+                        SELECT process_id FROM patient WHERE patient.id = appointment.patient_id
+                    )""",
+                    "CREATE INDEX ix_appointment_process ON appointment(process_id)"
             }
     );
 

@@ -1,6 +1,8 @@
 package co.sv.consultorio.domain;
 
 import java.time.LocalDate;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Paciente con su procedimiento, la próxima cita (si existe) y cuántas citas lleva.
@@ -12,7 +14,24 @@ public record PatientOverview(
         Appointment appointment,
         int citaCount,
         int controlCount,
-        LocalDate lastCitaDate) {
+        LocalDate lastCitaDate,
+        List<Process> allProcesses) {
+
+    /** Procedimientos del paciente. Si la lista viene vacía, usa el principal. */
+    public List<Process> procedures() {
+        if (allProcesses != null && !allProcesses.isEmpty()) {
+            return allProcesses;
+        }
+        return process == null ? List.of() : List.of(process);
+    }
+
+    public String procedureNames() {
+        return procedures().stream().map(Process::name).collect(Collectors.joining(", "));
+    }
+
+    public boolean hasProcedure(Long id) {
+        return id != null && procedures().stream().anyMatch(p -> p.id() == id);
+    }
 
     public boolean hasAppointment() {
         return appointment != null;

@@ -6,7 +6,10 @@ import co.sv.consultorio.domain.Patient;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 public class PatientRepository {
 
@@ -17,10 +20,54 @@ public class PatientRepository {
     }
 
     public long insert(Patient p) {
-        return db.insert("""
+        long id = db.insert("""
                         INSERT INTO patient (full_name, document, phone, country_code, process_id, birth_date, registered_at, active)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
                 p.fullName(), p.document(), p.phone(), p.countryCode(), p.processId(), p.birthDate(), p.registeredAt(), p.active());
+        if (p.processId() != null) {
+            linkProcedure(id, p.processId());
+        }
+        return id;
+    }
+
+    /** Deja exactamente estos procedimientos. El primero queda como principal. */
+    public void replaceProcedures(long patientId, List<Long> processIds) {
+        db.inTransaction(() -> {
+            db.update("DELETE FROM patient_process WHERE patient_id = ?", patientId);
+            Long first = null;
+            if (processIds != null) {
+                for (Long processId : processIds) {
+                    if (processId == null) {
+                        continue;
+                    }
+                    if (first == null) {
+                        first = processId;
+                    }
+                    db.update("INSERT OR IGNORE INTO patient_process (patient_id, process_id) VALUES (?, ?)",
+                            patientId, processId);
+                }
+            }
+            db.update("UPDATE patient SET process_id = ? WHERE id = ?", first, patientId);
+        });
+    }
+
+    /** Suma un procedimiento sin quitar los que ya tiene. */
+    public void linkProcedure(long patientId, long processId) {
+        db.update("INSERT OR IGNORE INTO patient_process (patient_id, process_id) VALUES (?, ?)", patientId, processId);
+        db.update("UPDATE patient SET process_id = ? WHERE id = ? AND process_id IS NULL", processId, patientId);
+    }
+
+    public Map<Long, List<Long>> procedureIds() {
+        Map<Long, List<Long>> out = new LinkedHashMap<>();
+        db.query("SELECT patient_id, process_id FROM patient_process ORDER BY patient_id, process_id", rs -> {
+            out.computeIfAbsent(rs.getLong(1), k -> new ArrayList<>()).add(rs.getLong(2));
+            return null;
+        });
+        return out;
+    }
+
+    public List<Long> procedureIds(long patientId) {
+        return procedureIds().getOrDefault(patientId, List.of());
     }
 
     public void update(Patient p) {

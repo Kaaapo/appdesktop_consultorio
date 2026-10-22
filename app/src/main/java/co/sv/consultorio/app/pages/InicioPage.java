@@ -170,7 +170,7 @@ public final class InicioPage extends Page {
                 sub = it.appointment().processAndType();
                 chip = Chip.conCita(Fmt.appointmentChip(it.appointment().appointment().startsAt(), today));
             } else {
-                String proc = it.overview().process() == null ? "" : it.overview().process().name() + " · ";
+                String proc = it.overview().procedureNames().isBlank() ? "" : it.overview().procedureNames() + " · ";
                 sub = proc + it.step().note(it.overview().nextCitaNumber());
                 chip = Chip.sinCita();
             }

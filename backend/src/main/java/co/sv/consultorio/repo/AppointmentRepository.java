@@ -22,19 +22,19 @@ public class AppointmentRepository {
         this.db = db;
     }
 
-    public long insert(long patientId, LocalDateTime startsAt, AppointmentType type, LocalDateTime now) {
+    public long insert(long patientId, LocalDateTime startsAt, AppointmentType type, LocalDateTime now, Long processId) {
         return db.insert("""
-                        INSERT INTO appointment (patient_id, starts_at, type, created_at, updated_at)
-                        VALUES (?, ?, ?, ?, ?)""",
-                patientId, startsAt, type, now, now);
+                        INSERT INTO appointment (patient_id, starts_at, type, process_id, created_at, updated_at)
+                        VALUES (?, ?, ?, ?, ?, ?)""",
+                patientId, startsAt, type, processId, now, now);
     }
 
     /** Guarda todos los campos de la cita (incluye el aviso). */
     public void update(Appointment a, LocalDateTime now) {
         db.update("""
-                        UPDATE appointment SET starts_at = ?, type = ?, notified_at = ?, notified_text = ?, wa_status = ?, updated_at = ?
+                        UPDATE appointment SET starts_at = ?, type = ?, notified_at = ?, notified_text = ?, wa_status = ?, process_id = ?, updated_at = ?
                         WHERE id = ?""",
-                a.startsAt(), a.type(), a.notifiedAt(), a.notifiedText(), a.waStatus(), now, a.id());
+                a.startsAt(), a.type(), a.notifiedAt(), a.notifiedText(), a.waStatus(), a.processId(), now, a.id());
     }
 
     public void delete(long id) {
@@ -145,6 +145,11 @@ public class AppointmentRepository {
                 startsAt.plusMinutes(GAP_MINUTES)) > 0;
     }
 
+    private static Long processId(ResultSet rs) throws SQLException {
+        long id = rs.getLong("process_id");
+        return rs.wasNull() ? null : id;
+    }
+
     private static WaStatus wa(String raw) {
         if (raw == null || raw.isBlank()) {
             return WaStatus.NONE;
@@ -161,6 +166,7 @@ public class AppointmentRepository {
                 DbTypes.dateTime(rs.getString("notified_at")),
                 rs.getString("notified_text"),
                 wa(rs.getString("wa_status")),
-                DbTypes.dateTime(rs.getString("created_at")));
+                DbTypes.dateTime(rs.getString("created_at")),
+                processId(rs));
     }
 }

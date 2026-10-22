@@ -234,10 +234,10 @@ class ImportAndReportTest {
     @Test
     void whatsAppTextDoesNotCrashWithoutNotificationDate() {
         Appointment a = new Appointment(1, 1, TestEnv.NOW, AppointmentType.CITA, null, null,
-                WaStatus.AVISADO, TestEnv.NOW);
+                WaStatus.AVISADO, TestEnv.NOW, null);
         Patient p = new Patient(1, "Ana Uno", "1111", "3105550142", "57", 1L,
                 TestEnv.TODAY.minusYears(30), TestEnv.NOW, true);
-        PatientOverview o = new PatientOverview(p, null, a, 1, 0, null);
+        PatientOverview o = new PatientOverview(p, null, a, 1, 0, null, java.util.List.of());
         assertEquals("Avisado · sin respuesta", ReportService.whatsAppText(o));
     }
 

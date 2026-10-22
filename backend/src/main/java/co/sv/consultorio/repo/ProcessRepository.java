@@ -43,7 +43,10 @@ public class ProcessRepository {
     /** Pacientes activos por proceso. */
     public Map<Long, Integer> activePatientCounts() {
         Map<Long, Integer> out = new HashMap<>();
-        db.query("SELECT process_id, COUNT(*) FROM patient WHERE active = 1 GROUP BY process_id",
+        db.query("""
+                        SELECT pp.process_id, COUNT(*) FROM patient_process pp
+                        JOIN patient p ON p.id = pp.patient_id
+                        WHERE p.active = 1 GROUP BY pp.process_id""",
                 rs -> out.put(rs.getLong(1), rs.getInt(2)));
         return out;
     }

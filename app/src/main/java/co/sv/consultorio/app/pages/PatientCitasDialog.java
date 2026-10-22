@@ -20,7 +20,9 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 
 import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /** Citas de un paciente: verlas, cancelarlas, reasignarlas y la fecha sugerida. */
 public final class PatientCitasDialog {
@@ -35,8 +37,9 @@ public final class PatientCitasDialog {
             return;
         }
         Patient patient = overview.patient();
-        Process process = overview.process();
-        String sub = process == null ? "" : process.name() + " · cada " + process.monthsLabel();
+        String sub = overview.procedures().stream()
+                .map(p -> p.name() + " · cada " + p.monthsLabel())
+                .collect(Collectors.joining("  ·  "));
         Pop pop = new Pop(ctx, "Paciente", patient.fullName(), sub, 28);
         VBox list = new VBox(Ui.px(8));
         Runnable reload = () -> fill(ctx, pop, patientId, list);
@@ -53,10 +56,9 @@ public final class PatientCitasDialog {
             return;
         }
         LocalDate today = ctx.s().time().today();
-        LocalDate suggested = suggested(ctx, overview, today);
-        String when = suggested == null ? "Elige un procedimiento para calcular la siguiente cita."
-                : "Siguiente cita sugerida: " + Fmt.longDateDow(suggested)
-                + (overview.process() == null ? "" : " · cada " + overview.process().monthsLabel()) + ".";
+        List<AppointmentView> citas = ctx.s().appointments().forPatient(patientId);
+        LocalDate suggested = suggestedDate(ctx, overview, citas, today);
+        String when = suggestText(overview, citas, today, suggested);
         Label hint = Ui.wrap(when, "fs15");
         Button use = Ui.btn2("Asignar esa fecha");
         use.setDisable(suggested == null);
@@ -71,16 +73,16 @@ public final class PatientCitasDialog {
         suggest.getStyleClass().add("soft-box");
         list.getChildren().add(suggest);
 
-        List<AppointmentView> citas = ctx.s().appointments().forPatient(patientId);
         if (citas.isEmpty()) {
             list.getChildren().add(Ui.wrap("Todavía no tiene citas.", "muted", "fs15"));
             return;
         }
         for (AppointmentView v : citas) {
             boolean past = v.appointment().startsAt().isBefore(ctx.s().time().now());
-            String title = v.appointment().type() == AppointmentType.CITA
+            String proc = v.process() == null ? "" : " · " + v.process().name();
+            String title = (v.appointment().type() == AppointmentType.CITA
                     ? "Cita " + v.citaNumber()
-                    : "Control";
+                    : "Control") + proc;
             Label name = Ui.stayInside(Ui.wrap(title + " · " + Fmt.appointmentLong(v.appointment().startsAt()), "w600"));
             name.setMinWidth(0);
             VBox text = new VBox(Ui.px(2), name);
@@ -125,5 +127,55 @@ public final class PatientCitasDialog {
 
     static LocalDate suggested(AppContext ctx, PatientOverview overview, LocalDate today) {
         return ctx.s().appointments().suggestedDay(overview, today);
+    }
+
+    private static LocalDate suggestedDate(AppContext ctx, PatientOverview overview, List<AppointmentView> citas,
+                                           LocalDate today) {
+        if (overview.procedures().size() <= 1) {
+            return suggested(ctx, overview, today);
+        }
+        LocalDate soonest = null;
+        for (Process process : overview.procedures()) {
+            LocalDate raw = nextFor(process, citas);
+            if (raw == null) {
+                continue;
+            }
+            LocalDate day = ctx.s().appointments().firstFreeDayFrom(raw.isBefore(today) ? today : raw);
+            if (soonest == null || day.isBefore(soonest)) {
+                soonest = day;
+            }
+        }
+        return soonest;
+    }
+
+    private static String suggestText(PatientOverview overview, List<AppointmentView> citas, LocalDate today,
+                                      LocalDate suggested) {
+        if (overview.procedures().isEmpty()) {
+            return "Elige un procedimiento para calcular la siguiente cita.";
+        }
+        if (overview.procedures().size() == 1) {
+            Process process = overview.procedures().get(0);
+            return suggested == null
+                    ? "Elige un procedimiento para calcular la siguiente cita."
+                    : "Siguiente cita sugerida: " + Fmt.longDateDow(suggested) + " · cada " + process.monthsLabel() + ".";
+        }
+        return overview.procedures().stream().map(process -> {
+            LocalDate raw = nextFor(process, citas);
+            if (raw == null) {
+                return process.name() + ": todavía sin cita";
+            }
+            LocalDate day = raw.isBefore(today) ? today : raw;
+            return process.name() + ": siguiente " + Fmt.longDateDow(day);
+        }).collect(Collectors.joining("\n"));
+    }
+
+    private static LocalDate nextFor(Process process, List<AppointmentView> citas) {
+        return citas.stream()
+                .filter(v -> v.appointment().type() == AppointmentType.CITA)
+                .filter(v -> v.process() != null && v.process().id() == process.id())
+                .map(v -> v.appointment().startsAt().toLocalDate())
+                .max(Comparator.naturalOrder())
+                .map(last -> last.plusMonths(process.monthsToSecond()))
+                .orElse(null);
     }
 }

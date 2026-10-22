@@ -8,6 +8,7 @@ import co.sv.consultorio.domain.NextStep;
 import co.sv.consultorio.domain.Patient;
 import co.sv.consultorio.domain.PatientOverview;
 import co.sv.consultorio.domain.Process;
+import co.sv.consultorio.service.PatientInput;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -130,9 +131,15 @@ class AppointmentServiceTest {
         Patient other = env.patient("Laura", "Mejía", "43987210", b, TestEnv.TODAY);
         appts.assign(other.id(), AppointmentType.CITA, TestEnv.TODAY.atTime(15, 30));
         List<AppointmentService.Slot> slots = appts.daySlots(TestEnv.TODAY);
+        assertEquals(AppointmentService.SlotState.PAST, state(slots, LocalTime.of(7, 0)));
         assertEquals(AppointmentService.SlotState.PAST, state(slots, LocalTime.of(9, 0)));
+        assertEquals(AppointmentService.SlotState.PAST, state(slots, LocalTime.of(12, 30)));
+        assertEquals(AppointmentService.SlotState.FREE, state(slots, LocalTime.of(13, 0)));
         assertEquals(AppointmentService.SlotState.FREE, state(slots, LocalTime.of(14, 0)));
         assertEquals(AppointmentService.SlotState.BUSY, state(slots, LocalTime.of(15, 30)));
+        assertEquals(AppointmentService.SlotState.FREE, state(slots, LocalTime.of(19, 0)));
+        assertEquals(25, slots.size());
+        assertTrue(appts.daySlots(TestEnv.TODAY.plusDays(5)).isEmpty());
     }
 
     @Test
@@ -162,7 +169,7 @@ class AppointmentServiceTest {
     void firstFreeSlotsSkipSundays() {
         List<LocalDateTime> free = appts.firstFreeSlots(6);
         assertEquals(6, free.size());
-        assertEquals(TestEnv.TODAY.atTime(14, 0), free.get(0));
+        assertEquals(TestEnv.TODAY.atTime(13, 0), free.get(0));
         assertTrue(free.stream().noneMatch(d -> d.getDayOfWeek() == DayOfWeek.SUNDAY));
     }
 
@@ -199,6 +206,29 @@ class AppointmentServiceTest {
         assertEquals("Cita 2 sugerida: 13 oct", c.nextStep(TestEnv.TODAY).note(2));
         assertEquals(NextStep.Kind.OVERDUE, c.nextStep(TestEnv.TODAY.plusDays(1)).kind());
         assertEquals("Cita 2 vencida desde el 13 oct", c.nextStep(TestEnv.TODAY.plusDays(1)).note(2));
+    }
+
+    @Test
+    void severalProceduresAreChosenOnTheAppointment() {
+        Process other = env.process("Proceso A", 3);
+        env.s.patients().update(camila.id(), new PatientInput(camila.fullName(), camila.document(), camila.phone(),
+                List.of(b.id(), other.id()), camila.birthDate(), "57"));
+        PatientOverview view = env.s.patients().overview(camila.id());
+        assertEquals(2, view.procedures().size());
+        assertTrue(view.procedureNames().contains("Proceso A"));
+        assertTrue(view.procedureNames().contains("Proceso B"));
+
+        BusinessException missing = assertThrows(BusinessException.class,
+                () -> appts.add(camila.id(), AppointmentType.CITA, FRI_1030));
+        assertTrue(missing.getMessage().contains("procedimiento"));
+
+        Appointment saved = appts.add(camila.id(), AppointmentType.CITA, FRI_1030, other.id()).saved();
+        assertEquals(other.id(), saved.processId());
+        assertEquals("Proceso A", appts.view(saved.id()).process().name());
+        PatientOverview after = env.s.patients().overview(camila.id());
+        assertEquals(appts.firstFreeDayFrom(FRI_1030.toLocalDate().plusMonths(3)),
+                appts.suggestedDay(after, other, TestEnv.TODAY));
+        assertEquals(TestEnv.TODAY, appts.suggestedDay(after, b, TestEnv.TODAY));
     }
 
     private static AppointmentService.SlotState state(List<AppointmentService.Slot> slots, LocalTime t) {
