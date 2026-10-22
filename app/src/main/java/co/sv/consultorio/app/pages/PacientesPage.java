@@ -524,7 +524,7 @@ public final class PacientesPage extends Page {
         String kind = o.appointment().type() == co.sv.consultorio.domain.AppointmentType.CONTROL ? "Control" : "Cita";
         String day = start.toLocalDate().equals(today)
                 ? "Hoy"
-                : Fmt.dowShort(start.toLocalDate()) + " " + start.getDayOfMonth();
+                : Fmt.shortDate(start.toLocalDate()) + " " + start.getYear();
         return kind + " · " + day + "\n" + Fmt.time12(start);
     }
 

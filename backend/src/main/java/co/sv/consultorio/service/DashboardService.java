@@ -168,7 +168,7 @@ public class DashboardService {
             String title = index == 0 ? "Esta semana"
                     : index == 1 ? "Próxima semana"
                     : end.equals(monthEnd) ? "Última semana"
-                    : "Semana del " + Fmt.shortDate(start);
+                    : "Semana del " + Fmt.shortDate(start, start);
             month.add(new WeekGroup(start, end, title, inWeek.size(), pend));
             monthCount += inWeek.size();
             start = end.plusDays(1);

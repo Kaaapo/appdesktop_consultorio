@@ -113,8 +113,8 @@ public final class DailyPopup {
                         : (data.weekCount() - pend) + " ya avisados · " + pend + " por avisar");
                 for (DashboardService.DayGroup g : data.week()) {
                     String when = g.date().equals(today)
-                            ? "Hoy · " + Fmt.dowShort(g.date()).toLowerCase(Fmt.LOCALE) + " " + g.date().getDayOfMonth()
-                            : Fmt.dowShort(g.date()) + " " + g.date().getDayOfMonth();
+                            ? "Hoy"
+                            : Fmt.dowShort(g.date()) + " " + Fmt.shortDate(g.date()) + " " + g.date().getYear();
                     row(when, names(g.items()), countLine(g.items().size(), g.pending()), badge(g.items().size()));
                 }
             }
@@ -123,8 +123,8 @@ public final class DailyPopup {
                 summary.setText(data.monthCount() == 0 ? "No tienes más citas este mes."
                         : (data.monthCount() - pend) + " ya avisados · " + pend + " por avisar");
                 for (DashboardService.WeekGroup w : data.month()) {
-                    String when = w.from().equals(w.to()) ? Fmt.shortDate(w.from())
-                            : w.from().getDayOfMonth() + " – " + Fmt.shortDate(w.to());
+                    String when = w.from().equals(w.to()) ? Fmt.shortDate(w.from(), today)
+                            : w.from().getDayOfMonth() + " – " + Fmt.shortDate(w.to(), today);
                     row(when, w.title(), countLine(w.count(), w.pending()), badge(w.count()));
                 }
             }

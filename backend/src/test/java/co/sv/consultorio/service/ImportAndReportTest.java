@@ -275,7 +275,7 @@ class ImportAndReportTest {
         ReportService.ReportRequest withInactive = new ReportService.ReportRequest(true, LocalDate.of(2026, 9, 1),
                 TestEnv.TODAY, b.id(), PatientFilter.CitaFilter.ALL, PatientFilter.WhatsAppFilter.ALL, true);
         assertEquals(2, env.s.reports().rows(withInactive).size());
-        assertEquals("Del 1 de septiembre al 13 de octubre de 2026", env.s.reports().describe(withInactive));
+        assertEquals("Del 1 de septiembre de 2026 al 13 de octubre de 2026", env.s.reports().describe(withInactive));
 
         Path xlsx = tmp.resolve("r.xlsx");
         Path pdf = tmp.resolve("r.pdf");

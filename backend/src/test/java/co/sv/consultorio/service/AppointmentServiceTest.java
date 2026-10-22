@@ -203,9 +203,9 @@ class AppointmentServiceTest {
         PatientOverview c = env.s.patients().overview(camila.id());
         assertEquals(1, c.citaCount());
         assertEquals(NextStep.Kind.SUGGESTED, c.nextStep(TestEnv.TODAY).kind());
-        assertEquals("Cita 2 sugerida: 13 oct", c.nextStep(TestEnv.TODAY).note(2));
+        assertEquals("Cita 2 sugerida: 13 oct 2026", c.nextStep(TestEnv.TODAY).note(2));
         assertEquals(NextStep.Kind.OVERDUE, c.nextStep(TestEnv.TODAY.plusDays(1)).kind());
-        assertEquals("Cita 2 vencida desde el 13 oct", c.nextStep(TestEnv.TODAY.plusDays(1)).note(2));
+        assertEquals("Cita 2 vencida desde el 13 oct 2026", c.nextStep(TestEnv.TODAY.plusDays(1)).note(2));
     }
 
     @Test

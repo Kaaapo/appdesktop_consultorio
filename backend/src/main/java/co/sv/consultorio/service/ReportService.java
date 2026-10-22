@@ -89,7 +89,7 @@ public class ReportService {
         return out;
     }
 
-    /** "Del 1 de septiembre al 13 de octubre de 2026" o "Todos los pacientes al 13 de octubre de 2026". */
+    /** "Del 1 de septiembre de 2026 al 13 de octubre de 2026" o "Todos los pacientes al 13 de octubre de 2026". */
     public String describe(ReportRequest r) {
         LocalDate today = time.today();
         if (!r.range()) {

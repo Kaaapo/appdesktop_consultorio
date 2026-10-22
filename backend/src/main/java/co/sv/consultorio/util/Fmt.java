@@ -44,27 +44,27 @@ public final class Fmt {
         return DOWS_SHORT[d.getDayOfWeek().getValue() - 1];
     }
 
-    /** "13 oct" */
+    /** "13 oct". El año se agrega en {@link #shortDate(LocalDate, LocalDate)}. */
     public static String shortDate(LocalDate d) {
         return d.getDayOfMonth() + " " + monthShort(d);
     }
 
-    /** "13 oct" si es del año de referencia, si no "13 oct 2025". */
+    /** "13 oct 2026". El año va siempre; {@code today} se conserva para las llamadas que ya lo pasaban. */
     public static String shortDate(LocalDate d, LocalDate today) {
-        return d.getYear() == today.getYear() ? shortDate(d) : shortDate(d) + " " + d.getYear();
+        return shortDate(d) + " " + (today == null ? d.getYear() : d.getYear());
     }
 
-    /** "13 de noviembre" */
+    /** "13 de noviembre de 2026" */
     public static String longDate(LocalDate d) {
-        return d.getDayOfMonth() + " de " + month(d);
+        return d.getDayOfMonth() + " de " + month(d) + " de " + d.getYear();
     }
 
-    /** "1 de septiembre de 2026" */
+    /** Igual que {@link #longDate}: día, mes y año. */
     public static String longDateYear(LocalDate d) {
-        return longDate(d) + " de " + d.getYear();
+        return longDate(d);
     }
 
-    /** "viernes 16 de octubre" */
+    /** "viernes 16 de octubre de 2026" */
     public static String longDateDow(LocalDate d) {
         return dow(d) + " " + longDate(d);
     }
@@ -93,12 +93,12 @@ public final class Fmt {
         return time12(dt.toLocalTime());
     }
 
-    /** Fecha para el mensaje de WhatsApp: "viernes 16 de octubre a las 10:30 a. m." o "sábado 17 de octubre a la 1:00 p. m.". */
+    /** Fecha para el mensaje de WhatsApp: "viernes 16 de octubre de 2026 a las 10:30 a. m.". */
     public static String messageDate(LocalDateTime dt) {
         return longDateDow(dt.toLocalDate()) + (dt.getHour() % 12 == 1 ? " a la " : " a las ") + time12(dt);
     }
 
-    /** "viernes 16 de octubre, 10:30 a. m." */
+    /** "viernes 16 de octubre de 2026, 10:30 a. m." */
     public static String appointmentLong(LocalDateTime dt) {
         return longDateDow(dt.toLocalDate()) + ", " + time12(dt);
     }
@@ -111,7 +111,7 @@ public final class Fmt {
             return "Hoy " + time12(dt);
         }
         if (days > 0 && days < 7) {
-            return dowShort(d) + " " + d.getDayOfMonth() + " · " + time12(dt);
+            return dowShort(d) + " " + shortDate(d) + " " + d.getYear() + " · " + time12(dt);
         }
         return shortDate(d, today) + " · " + time12(dt);
     }
@@ -123,7 +123,7 @@ public final class Fmt {
             return "Hoy";
         }
         if (days > 0 && days < 7) {
-            return dowShort(d) + " " + d.getDayOfMonth();
+            return dowShort(d) + " " + shortDate(d) + " " + d.getYear();
         }
         return shortDate(d, today);
     }

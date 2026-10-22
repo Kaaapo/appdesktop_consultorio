@@ -13,8 +13,8 @@ public record NextStep(AppointmentType type, LocalDate date, Kind kind) {
     public String note(int nextNumber) {
         return switch (kind) {
             case NONE -> "Sin citas";
-            case SUGGESTED -> "Cita " + nextNumber + " sugerida: " + Fmt.shortDate(date);
-            case OVERDUE -> "Cita " + nextNumber + " vencida desde el " + Fmt.shortDate(date);
+            case SUGGESTED -> "Cita " + nextNumber + " sugerida: " + Fmt.shortDate(date) + " " + date.getYear();
+            case OVERDUE -> "Cita " + nextNumber + " vencida desde el " + Fmt.shortDate(date) + " " + date.getYear();
         };
     }
 }

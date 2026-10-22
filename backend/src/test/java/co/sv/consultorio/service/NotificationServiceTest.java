@@ -35,7 +35,7 @@ class NotificationServiceTest {
         Appointment a = env.s.appointments().assign(p.id(), AppointmentType.CITA,
                 LocalDateTime.of(2026, 10, 16, 10, 30)).saved();
         String msg = notifications.defaultMessage(env.s.appointments().view(a.id()));
-        assertEquals("Hola Camila Rojas, te recordamos tu cita de Proceso B el viernes 16 de octubre a las 10:30 a. m., "
+        assertEquals("Hola Camila Rojas, te recordamos tu cita de Proceso B el viernes 16 de octubre de 2026 a las 10:30 a. m., "
                 + "¿te queda bien esa fecha y hora?", msg);
     }
 
@@ -47,7 +47,7 @@ class NotificationServiceTest {
         Appointment a = env.s.appointments().add(p.id(), AppointmentType.CONTROL,
                 LocalDateTime.of(2026, 10, 17, 14, 0)).saved();
         String msg = notifications.defaultMessage(env.s.appointments().view(a.id()));
-        assertEquals("Hola Paula Vélez, ya se acerca tu control de Proceso B: sábado 17 de octubre a las 2:00 p. m..", msg);
+        assertEquals("Hola Paula Vélez, ya se acerca tu control de Proceso B: sábado 17 de octubre de 2026 a las 2:00 p. m..", msg);
         assertFalse(msg.toLowerCase(java.util.Locale.ROOT).contains("cita"));
     }
 
@@ -89,7 +89,7 @@ class NotificationServiceTest {
         assertEquals("Hola Laura", n.notifiedText());
 
         BusinessException e = assertThrows(BusinessException.class, () -> notifications.markNotified(a.id(), "otra vez"));
-        assertTrue(e.getMessage().contains("Ya se le avisó el 13 de octubre"));
+        assertTrue(e.getMessage().contains("Ya se le avisó el 13 de octubre de 2026"));
         assertEquals("Hola Laura", env.s.appointments().get(a.id()).notifiedText());
     }
 
@@ -108,8 +108,8 @@ class NotificationServiceTest {
 
     @Test
     void oneOClockSaysALaInTheMessage() {
-        assertEquals("sábado 17 de octubre a la 1:00 p. m.", Fmt.messageDate(LocalDateTime.of(2026, 10, 17, 13, 0)));
-        assertEquals("sábado 17 de octubre a las 12:30 p. m.", Fmt.messageDate(LocalDateTime.of(2026, 10, 17, 12, 30)));
+        assertEquals("sábado 17 de octubre de 2026 a la 1:00 p. m.", Fmt.messageDate(LocalDateTime.of(2026, 10, 17, 13, 0)));
+        assertEquals("sábado 17 de octubre de 2026 a las 12:30 p. m.", Fmt.messageDate(LocalDateTime.of(2026, 10, 17, 12, 30)));
     }
 
     @Test
