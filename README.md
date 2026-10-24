@@ -13,7 +13,7 @@ La interfaz está en español (Colombia) y las horas se muestran en formato de 1
 ## Qué hace
 
 - **Pacientes.** Nombre, documento, fecha de nacimiento, edad, teléfono, procedimiento, número de citas, número de controles y fecha de registro. Un paciente se desactiva; no se borra. El historial se conserva y se puede reactivar.
-- **Citas y controles.** Una cita suma al conteo. Un control no. Entre una hora y la siguiente hay hora y media de diferencia.
+- **Citas y controles.** Una cita suma al conteo. Un control no. Una cita tapa su hora y la media hora siguiente; un control solo ocupa la hora elegida.
 - **Horario.** De lunes a sábado, de 7:00 a. m. a 7:00 p. m., cada media hora y sin descanso al mediodía. El domingo el consultorio no abre: ese día no se puede agendar.
 - **WhatsApp.** Abre el chat de la aplicación de Windows, pega el mensaje una vez y después la foto de la ubicación. No abre el navegador.
 - **Mensajes.** Cada procedimiento tiene su plantilla. `{nombre}`, `{tipo}`, `{procedimiento}` y `{fecha}` se reemplazan al avisar. `{fecha}` incluye el día y la hora de la cita.

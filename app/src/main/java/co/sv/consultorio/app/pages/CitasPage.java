@@ -325,7 +325,9 @@ public final class CitasPage extends Page {
                 Ui.tip(b, sl.state() == AppointmentService.SlotState.PAST ? "Esa hora ya pasó"
                         : replaceId != null && sl.occupant() != null && sl.occupant().id() == replaceId
                         ? "Es la hora actual de la cita que vas a reasignar"
-                        : "Hay hora y media de diferencia con otra cita");
+                        : sl.occupant() != null && sl.occupant().type() == AppointmentType.CONTROL
+                        ? "Esa hora ya tiene un control"
+                        : "Es la media hora siguiente a una cita");
             }
             hoursPane.getChildren().add(b);
         }
@@ -335,7 +337,7 @@ public final class CitasPage extends Page {
                 ? "El domingo el consultorio no abre."
                 : "Este día el consultorio no atiende.")
                 : free == 0 ? "No quedan horas libres este día. Elige otra fecha."
-                : "Las horas tachadas quedan a menos de hora y media de otra cita.");
+                : "Una cita tapa su hora y la media hora siguiente. Un control solo ocupa su hora.");
         refreshActions();
     }
 

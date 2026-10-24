@@ -133,16 +133,23 @@ public class AppointmentRepository {
         return db.query("SELECT * FROM appointment ORDER BY starts_at", AppointmentRepository::map);
     }
 
-    public static final int GAP_MINUTES = 90;
+    /** Media hora siguiente que tapa una cita (no un control). */
+    public static final int GAP_MINUTES = 30;
 
-    /** Menos de hora y media respecto a otra cita de un paciente activo. */
+    /**
+     * La hora ya no se puede usar. Una cita tapa su hora y la media hora siguiente;
+     * un control solo tapa la hora exacta. Las horas anteriores quedan libres.
+     */
     public boolean slotTaken(LocalDateTime startsAt, long excludeAppointmentId) {
         return db.queryOne("""
                         SELECT COUNT(*) FROM appointment a JOIN patient p ON p.id = a.patient_id
-                        WHERE p.active = 1 AND a.id <> ? AND a.starts_at > ? AND a.starts_at < ?""",
-                rs -> rs.getInt(1), excludeAppointmentId,
-                startsAt.minusMinutes(GAP_MINUTES),
-                startsAt.plusMinutes(GAP_MINUTES)) > 0;
+                        WHERE p.active = 1 AND a.id <> ?
+                          AND (
+                            a.starts_at = ?
+                            OR (a.type = 'CITA' AND a.starts_at = ?)
+                          )""",
+                rs -> rs.getInt(1), excludeAppointmentId, startsAt,
+                startsAt.minusMinutes(GAP_MINUTES)) > 0;
     }
 
     private static Long processId(ResultSet rs) throws SQLException {

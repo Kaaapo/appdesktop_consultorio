@@ -128,7 +128,7 @@ public class AppointmentService {
                 throw new BusinessException("Esa hora ya pasó. Elige una fecha y hora futuras.");
             }
             if (appointments.slotTaken(startsAt, current.id())) {
-                throw new BusinessException("Esa hora queda a menos de hora y media de otra cita. Elige otra.");
+                throw new BusinessException(slotBusyMessage());
             }
             Long process = resolveProcess(current.patientId(), processId != null ? processId : current.processId());
             appointments.update(new Appointment(current.id(), current.patientId(), startsAt, type, null, null,
@@ -146,6 +146,10 @@ public class AppointmentService {
         return save(patientId, type, startsAt, processId);
     }
 
+    private static String slotBusyMessage() {
+        return "Esa hora ya está ocupada o es la media hora siguiente a una cita. Elige otra.";
+    }
+
     private AssignResult save(long patientId, AppointmentType type, LocalDateTime startsAt, Long processId) {
         Objects.requireNonNull(type, "type");
         Objects.requireNonNull(startsAt, "startsAt");
@@ -159,7 +163,7 @@ public class AppointmentService {
                 throw new BusinessException("Esa hora ya pasó. Elige una fecha y hora futuras.");
             }
             if (appointments.slotTaken(startsAt, 0)) {
-                throw new BusinessException("Esa hora queda a menos de hora y media de otra cita. Elige otra.");
+                throw new BusinessException(slotBusyMessage());
             }
             Long process = resolveProcess(patientId, processId);
             long id = appointments.insert(patientId, startsAt, type, now, process);
@@ -233,17 +237,23 @@ public class AppointmentService {
         return null;
     }
 
-    /** Cita del día cuyo inicio está a menos de hora y media de {@code at}, salvo la que se está moviendo. */
+    /**
+     * Quién tapa la hora {@code at}. Una cita tapa su hora y la media hora siguiente;
+     * un control solo tapa su hora exacta. No cuenta la cita que se está reasignando.
+     */
     private static Appointment nearestWithinGap(List<Appointment> day, LocalDateTime at, long excludeAppointmentId) {
         Appointment nearest = null;
-        long best = GAP_MINUTES;
+        long best = Long.MAX_VALUE;
         for (Appointment a : day) {
             if (a.id() == excludeAppointmentId) {
                 continue;
             }
-            long minutes = Math.abs(java.time.Duration.between(a.startsAt(), at).toMinutes());
-            if (minutes < GAP_MINUTES && minutes < best) {
-                best = minutes;
+            long delta = java.time.Duration.between(a.startsAt(), at).toMinutes();
+            boolean blocks = delta == 0
+                    || (a.type() == AppointmentType.CITA && delta > 0 && delta <= GAP_MINUTES);
+            long distance = Math.abs(delta);
+            if (blocks && distance < best) {
+                best = distance;
                 nearest = a;
             }
         }

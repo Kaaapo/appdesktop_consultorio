@@ -93,11 +93,45 @@ class AppointmentServiceTest {
         appts.assign(camila.id(), AppointmentType.CITA, FRI_1030);
         BusinessException e = assertThrows(BusinessException.class,
                 () -> appts.assign(other.id(), AppointmentType.CITA, FRI_1030));
-        assertTrue(e.getMessage().contains("hora y media"));
+        assertTrue(e.getMessage().contains("media hora"));
         assertThrows(BusinessException.class,
-                () -> appts.assign(other.id(), AppointmentType.CITA, FRI_1030.plusMinutes(60)));
-        appts.assign(other.id(), AppointmentType.CITA, FRI_1030.plusMinutes(90));
-        assertEquals(FRI_1030.plusMinutes(90), appts.current(other.id()).startsAt());
+                () -> appts.assign(other.id(), AppointmentType.CITA, FRI_1030.plusMinutes(30)));
+        appts.assign(other.id(), AppointmentType.CITA, FRI_1030.minusMinutes(30));
+        assertEquals(FRI_1030.minusMinutes(30), appts.current(other.id()).startsAt());
+        Patient third = env.patient("Sofía", "Díaz", "43987211", b, TestEnv.TODAY);
+        appts.assign(third.id(), AppointmentType.CITA, FRI_1030.plusMinutes(60));
+        assertEquals(FRI_1030.plusMinutes(60), appts.current(third.id()).startsAt());
+    }
+
+    @Test
+    void controlOnlyOccupiesItsExactHour() {
+        Patient other = env.patient("Laura", "Mejía", "43987210", b, TestEnv.TODAY);
+        Patient third = env.patient("Sofía", "Díaz", "43987211", b, TestEnv.TODAY);
+        appts.assign(camila.id(), AppointmentType.CONTROL, FRI_1030);
+        LocalDate friday = FRI_1030.toLocalDate();
+        assertEquals(AppointmentService.SlotState.FREE, state(appts.daySlots(friday), LocalTime.of(10, 0)));
+        assertEquals(AppointmentService.SlotState.BUSY, state(appts.daySlots(friday), LocalTime.of(10, 30)));
+        assertEquals(AppointmentService.SlotState.FREE, state(appts.daySlots(friday), LocalTime.of(11, 0)));
+        assertEquals(AppointmentService.SlotState.FREE, state(appts.daySlots(friday), LocalTime.of(11, 30)));
+
+        appts.assign(other.id(), AppointmentType.CONTROL, FRI_1030.plusMinutes(30));
+        assertEquals(FRI_1030.plusMinutes(30), appts.current(other.id()).startsAt());
+        appts.assign(third.id(), AppointmentType.CITA, FRI_1030.minusMinutes(30));
+        assertEquals(FRI_1030.minusMinutes(30), appts.current(third.id()).startsAt());
+
+        assertThrows(BusinessException.class,
+                () -> appts.assign(env.patient("Ana", "Pérez", "43987212", b, TestEnv.TODAY).id(),
+                        AppointmentType.CONTROL, FRI_1030));
+    }
+
+    @Test
+    void controlStillBlockedByNextHalfHourAfterCita() {
+        Patient other = env.patient("Laura", "Mejía", "43987210", b, TestEnv.TODAY);
+        appts.assign(camila.id(), AppointmentType.CITA, FRI_1030);
+        assertThrows(BusinessException.class,
+                () -> appts.assign(other.id(), AppointmentType.CONTROL, FRI_1030.plusMinutes(30)));
+        appts.assign(other.id(), AppointmentType.CONTROL, FRI_1030.plusMinutes(60));
+        assertEquals(FRI_1030.plusMinutes(60), appts.current(other.id()).startsAt());
     }
 
     @Test
@@ -136,7 +170,10 @@ class AppointmentServiceTest {
         assertEquals(AppointmentService.SlotState.PAST, state(slots, LocalTime.of(12, 30)));
         assertEquals(AppointmentService.SlotState.FREE, state(slots, LocalTime.of(13, 0)));
         assertEquals(AppointmentService.SlotState.FREE, state(slots, LocalTime.of(14, 0)));
+        assertEquals(AppointmentService.SlotState.FREE, state(slots, LocalTime.of(15, 0)));
         assertEquals(AppointmentService.SlotState.BUSY, state(slots, LocalTime.of(15, 30)));
+        assertEquals(AppointmentService.SlotState.BUSY, state(slots, LocalTime.of(16, 0)));
+        assertEquals(AppointmentService.SlotState.FREE, state(slots, LocalTime.of(16, 30)));
         assertEquals(AppointmentService.SlotState.FREE, state(slots, LocalTime.of(19, 0)));
         assertEquals(25, slots.size());
         assertTrue(appts.daySlots(TestEnv.TODAY.plusDays(5)).isEmpty());
@@ -146,19 +183,21 @@ class AppointmentServiceTest {
     void rescheduleOpensHoursBlockedOnlyByThatAppointment() {
         Appointment saved = appts.assign(camila.id(), AppointmentType.CITA, FRI_1030).saved();
         LocalDate friday = FRI_1030.toLocalDate();
-        assertEquals(AppointmentService.SlotState.BUSY, state(appts.daySlots(friday), LocalTime.of(10, 0)));
-        assertEquals(AppointmentService.SlotState.BUSY, state(appts.daySlots(friday), LocalTime.of(11, 30)));
+        assertEquals(AppointmentService.SlotState.FREE, state(appts.daySlots(friday), LocalTime.of(10, 0)));
+        assertEquals(AppointmentService.SlotState.BUSY, state(appts.daySlots(friday), LocalTime.of(11, 0)));
+        assertEquals(AppointmentService.SlotState.FREE, state(appts.daySlots(friday), LocalTime.of(11, 30)));
 
         List<AppointmentService.Slot> moving = appts.daySlots(friday, saved.id());
         assertEquals(AppointmentService.SlotState.BUSY, state(moving, LocalTime.of(10, 30)));
         assertEquals(AppointmentService.SlotState.FREE, state(moving, LocalTime.of(10, 0)));
         assertEquals(AppointmentService.SlotState.FREE, state(moving, LocalTime.of(9, 30)));
-        assertEquals(AppointmentService.SlotState.FREE, state(moving, LocalTime.of(11, 30)));
+        assertEquals(AppointmentService.SlotState.FREE, state(moving, LocalTime.of(11, 0)));
 
         Patient other = env.patient("Laura", "Mejía", "43987210", b, TestEnv.TODAY);
         appts.assign(other.id(), AppointmentType.CITA, FRI_1030.withHour(15).withMinute(0));
         List<AppointmentService.Slot> still = appts.daySlots(friday, saved.id());
-        assertEquals(AppointmentService.SlotState.BUSY, state(still, LocalTime.of(14, 30)));
+        assertEquals(AppointmentService.SlotState.BUSY, state(still, LocalTime.of(15, 30)));
+        assertEquals(AppointmentService.SlotState.FREE, state(still, LocalTime.of(14, 30)));
         assertEquals(AppointmentService.SlotState.FREE, state(still, LocalTime.of(10, 0)));
 
         appts.reschedule(saved.id(), AppointmentType.CITA, FRI_1030.withHour(10).withMinute(0));

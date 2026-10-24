@@ -65,17 +65,18 @@ class DeliveryChecklistTest {
         LocalDateTime at = LocalDateTime.of(2026, 10, 16, 10, 30);
         Appointment first = env.s.appointments().add(camila.id(), AppointmentType.CITA, at, b.id()).saved();
         assertThrows(BusinessException.class,
-                () -> env.s.appointments().add(camila.id(), AppointmentType.CITA, at.plusMinutes(60), b.id()));
+                () -> env.s.appointments().add(camila.id(), AppointmentType.CITA, at.plusMinutes(30), b.id()));
 
         List<AppointmentService.Slot> moving = env.s.appointments().daySlots(at.toLocalDate(), first.id());
         assertEquals(AppointmentService.SlotState.BUSY, state(moving, LocalTime.of(10, 30)));
+        assertEquals(AppointmentService.SlotState.FREE, state(moving, LocalTime.of(11, 0)));
         assertEquals(AppointmentService.SlotState.FREE, state(moving, LocalTime.of(12, 0)));
         assertEquals(AppointmentService.SlotState.FREE, state(moving, LocalTime.of(7, 0)));
         assertEquals(AppointmentService.SlotState.FREE, state(moving, LocalTime.of(19, 0)));
         assertTrue(moving.stream().noneMatch(s -> s.time().equals(LocalTime.of(19, 30))));
         assertTrue(env.s.appointments().daySlots(TestEnv.TODAY.plusDays(5)).isEmpty());
 
-        Appointment later = env.s.appointments().add(camila.id(), AppointmentType.CITA, at.plusMinutes(90), other.id()).saved();
+        Appointment later = env.s.appointments().add(camila.id(), AppointmentType.CITA, at.plusMinutes(60), other.id()).saved();
         Appointment moved = env.s.appointments().reschedule(first.id(), AppointmentType.CITA, at.withHour(16).withMinute(0)).saved();
         assertEquals(first.id(), moved.id());
         assertEquals(LocalTime.of(16, 0), moved.startsAt().toLocalTime());
@@ -83,7 +84,7 @@ class DeliveryChecklistTest {
         assertEquals(2, visits.size());
         assertEquals(LocalTime.of(16, 0), visits.stream().filter(v -> v.appointment().id() == first.id())
                 .findFirst().orElseThrow().appointment().startsAt().toLocalTime());
-        assertEquals(at.plusMinutes(90), visits.stream().filter(v -> v.appointment().id() == later.id())
+        assertEquals(at.plusMinutes(60), visits.stream().filter(v -> v.appointment().id() == later.id())
                 .findFirst().orElseThrow().appointment().startsAt());
     }
 
